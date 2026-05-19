@@ -61,19 +61,10 @@ class LearningLoopPlugin extends Plugin {
     this.registerEvent(this._syncHandler);
   }
   enterInsertMode(editor) {
-    const cm = editor.cm;
+    const cm = editor.cm?.cm;
     if (!cm) return;
-    // CM6 vim: access the vim plugin's Vim object
-    const vim = cm.state?.vim;
-    if (vim) {
-      vim.mode = 'insert';
-      vim.insertMode = true;
-      cm.contentDOM?.classList?.remove('cm-vimMode', 'cm-vim-normal');
-      cm.contentDOM?.classList?.add('cm-vimMode', 'cm-vim-insert');
-      return;
-    }
-    // Fallback: try dispatching 'i' key to the content DOM
-    cm.contentDOM?.dispatchEvent(new KeyboardEvent('keydown', { key: 'i', code: 'KeyI', bubbles: true }));
+    cm.focus();
+    window.CodeMirror?.Vim?.handleKey(cm, 'i', 'normal');
   }
 
   async loadSettings() {
