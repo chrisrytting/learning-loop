@@ -6,7 +6,7 @@ const syncInstructions = require('./syncInstructions');
 const LearningLoopSettingTab = require('./settings');
 
 const DEFAULT_SETTINGS = { anthropicApiKey: '', smartOpenOnCmdClick: false };
-const PROBLEMS_DIR = 'Problems';
+const LOG_NOTES_DIR = 'Notes';
 const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
 
 function stripListMarker(text) {
@@ -267,7 +267,7 @@ class LearningLoopPlugin extends Plugin {
 
   async readProblemFiles() {
     const files = this.app.vault.getFiles()
-      .filter(file => file.extension === 'md' && file.path.startsWith(`${PROBLEMS_DIR}/`));
+      .filter(file => file.extension === 'md' && file.path.startsWith(`${LOG_NOTES_DIR}/`));
     const entries = [];
     for (const file of files) {
       const content = await this.app.vault.adapter.read(file.path);
@@ -334,11 +334,11 @@ class LearningLoopPlugin extends Plugin {
   findProblemDestination(problemName) {
     const normalizedProblem = normalizeProblemName(problemName);
     const files = this.app.vault.getFiles()
-      .filter(file => file.extension === 'md' && file.path.startsWith(`${PROBLEMS_DIR}/`));
+      .filter(file => file.extension === 'md' && file.path.startsWith(`${LOG_NOTES_DIR}/`));
     const exact = files.find(file => normalizeProblemName(file.basename) === normalizedProblem);
     if (exact) return { path: exact.path, problemName: exact.basename };
     const title = titleCaseProblemName(problemName);
-    return { path: `${PROBLEMS_DIR}/${title}.md`, problemName: title };
+    return { path: `${LOG_NOTES_DIR}/${title}.md`, problemName: title };
   }
 
   async log(editor) {
@@ -354,7 +354,7 @@ class LearningLoopPlugin extends Plugin {
     }
 
     const adapter = this.app.vault.adapter;
-    if (!await adapter.exists(PROBLEMS_DIR)) await adapter.mkdir(PROBLEMS_DIR);
+    if (!await adapter.exists(LOG_NOTES_DIR)) await adapter.mkdir(LOG_NOTES_DIR);
     const destination = this.findProblemDestination(parsed.problem);
     const exists = await adapter.exists(destination.path);
     const oldContent = exists ? await adapter.read(destination.path) : '';
