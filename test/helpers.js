@@ -46,12 +46,33 @@ async function createPlugin(files = [], settings = {}) {
   const commands = {};
   const adapterFiles = new Map();
   const dirs = new Set(['Problems']);
+  const workspaceCalls = { openLinkText: [], setActiveLeaf: [], getLeaf: [] };
+  const leftContainer = { children: [{ id: 'left-leaf' }] };
+  const workspace = {
+    rootSplit: { children: [leftContainer] },
+    activeLeaf: { id: 'left-leaf', parent: leftContainer },
+    setActiveLeaf(leaf, opts) {
+      workspaceCalls.setActiveLeaf.push({ leaf, opts });
+      workspace.activeLeaf = { ...leaf, parent: workspace.rootSplit.children.find(container => container.children.includes(leaf)) };
+    },
+    getLeaf(type, direction) {
+      const leaf = { id: 'new-split-leaf' };
+      const container = { children: [leaf] };
+      workspace.rootSplit.children.push(container);
+      workspaceCalls.getLeaf.push({ type, direction });
+      return leaf;
+    },
+    openLinkText: async (linktext, sourcePath, newLeaf, openState) => {
+      workspaceCalls.openLinkText.push({ linktext, sourcePath, newLeaf, openState });
+    },
+  };
   for (const file of files) {
     if (file.content !== undefined && file.path) adapterFiles.set(file.path, file.content);
   }
 
   const app = {
     commands: { executeCommandById: () => {} },
+    workspace,
     vault: {
       getFiles: () => files.map((f) => ({ extension: 'md', basename: f.basename, path: f.path || f.basename + '.md' })),
       adapter: {
@@ -106,6 +127,7 @@ async function createPlugin(files = [], settings = {}) {
     checkKeywords: (editor) => commands['check-keywords'](editor),
     plugin,
     adapterFiles,
+    workspaceCalls,
   };
 }
 

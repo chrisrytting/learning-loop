@@ -26,29 +26,35 @@ describe('problem-solve log command', () => {
     jest.useRealTimers();
   });
 
-  test('creates a new problem file from a selected log line', async () => {
+  test('creates a proposal in a new problem file from a selected log line', async () => {
     const editor = createEditor(
       ['chewing gum helped with sleepy'],
       0,
       0,
       { text: 'chewing gum helped with sleepy', from: { line: 0, ch: 0 }, to: { line: 0, ch: 30 } },
     );
-    const { log, adapterFiles } = await createPlugin([], { anthropicApiKey: 'test-key' });
+    const { log, adapterFiles, workspaceCalls } = await createPlugin([], { anthropicApiKey: 'test-key' });
 
     const result = await log(editor);
 
-    expect(result.status).toBe('logged');
+    expect(result.status).toBe('proposed');
     expect(result.path).toBe('Problems/Sleepy.md');
     expect(adapterFiles.get('Problems/Sleepy.md')).toBe([
-      '- Sleepy',
-      '\t- chewing gum',
-      '\t\t- [[2026/05/2026-05-20-Wednesday|2026-05-20-Wednesday]]',
-      '\t\t\t- chewing gum helped with sleepy',
+      '> [!success] Proposed addition',
+      '> ```markdown',
+      '> - Sleepy',
+      '> \t- chewing gum',
+      '> \t\t- [[2026/05/2026-05-20-Wednesday|2026-05-20-Wednesday]]',
+      '> \t\t\t- chewing gum helped with sleepy',
+      '> ```',
       '',
     ].join('\n'));
+    expect(workspaceCalls.openLinkText).toEqual([
+      { linktext: 'Problems/Sleepy', sourcePath: '', newLeaf: false, openState: undefined },
+    ]);
   });
 
-  test('appends a dated instance to an existing solution without rewriting prior entries', async () => {
+  test('appends a proposal for an existing solution without rewriting prior entries', async () => {
     const existing = [
       '- Sleepy',
       '\t- chewing gum',
@@ -84,17 +90,21 @@ describe('problem-solve log command', () => {
 
     const result = await log(editor);
 
-    expect(result.status).toBe('logged');
+    expect(result.status).toBe('proposed');
     expect(adapterFiles.get('Problems/Sleepy.md')).toBe([
       '- Sleepy',
       '\t- chewing gum',
       '\t\t- [[2026/05/2026-05-19-Tuesday|2026-05-19-Tuesday]]',
       '\t\t\t- gum helped yesterday',
-      '\t\t- [[2026/05/2026-05-20-Wednesday|2026-05-20-Wednesday]]',
-      '\t\t\t- chewing gum worked for sleepy',
       '\t- cold shower',
       '\t\t- [[2026/05/2026-05-18-Monday|2026-05-18-Monday]]',
       '\t\t\t- shower helped',
+      '',
+      '> [!success] Proposed addition',
+      '> ```markdown',
+      '> \t\t- [[2026/05/2026-05-20-Wednesday|2026-05-20-Wednesday]]',
+      '> \t\t\t- chewing gum worked for sleepy',
+      '> ```',
       '',
     ].join('\n'));
   });
@@ -119,14 +129,17 @@ describe('problem-solve log command', () => {
 
     const result = await log(editor);
 
-    expect(result.status).toBe('logged');
+    expect(result.status).toBe('proposed');
     expect(result.problem).toBe('Tired');
     expect(result.solutions).toEqual(['drank caffeine']);
     expect(adapterFiles.get('Problems/Tired.md')).toBe([
-      '- Tired',
-      '\t- drank caffeine',
-      '\t\t- [[2026/05/2026-05-20-Wednesday|2026-05-20-Wednesday]]',
-      '\t\t\t- I drank caffeine and I felt less tired',
+      '> [!success] Proposed addition',
+      '> ```markdown',
+      '> - Tired',
+      '> \t- drank caffeine',
+      '> \t\t- [[2026/05/2026-05-20-Wednesday|2026-05-20-Wednesday]]',
+      '> \t\t\t- I drank caffeine and I felt less tired',
+      '> ```',
       '',
     ].join('\n'));
   });
@@ -162,14 +175,18 @@ describe('problem-solve log command', () => {
 
     const result = await log(editor);
 
-    expect(result.status).toBe('logged');
+    expect(result.status).toBe('proposed');
     expect(result.problem).toBe('Tired');
     expect(result.solutions).toEqual(['Caffeine']);
     expect(adapterFiles.get('Problems/Tired.md')).toBe([
       '- Tired',
       '\t- Caffeine',
-      '\t\t- [[2026/02/2026-02-19-Thursday|2026-02-19-Thursday]]',
-      '\t\t\t- I drank caffeine and it riled me up.',
+      '',
+      '> [!success] Proposed addition',
+      '> ```markdown',
+      '> \t\t- [[2026/02/2026-02-19-Thursday|2026-02-19-Thursday]]',
+      '> \t\t\t- I drank caffeine and it riled me up.',
+      '> ```',
       '',
     ].join('\n'));
   });
