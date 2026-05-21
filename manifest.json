@@ -1,7 +1,7 @@
 {
   "id": "learning-loop",
   "name": "Learning Loop",
-  "description": "Retrieve pages to explore by inputting a natural language prompt and matching pages' frontmatter keyword tags. Add new tags to pages easily from the same block.",
+  "description": "Helps run Learning Loop traces and log problem-solution examples.",
   "version": "1.0.0",
   "author": "Chris Rytting",
   "isDesktopOnly": false,
