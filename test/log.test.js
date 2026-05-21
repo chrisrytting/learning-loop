@@ -38,8 +38,8 @@ describe('problem-solve log command', () => {
     const result = await log(editor);
 
     expect(result.status).toBe('logged');
-    expect(result.path).toBe('Problems/Sleepy.md');
-    expect(adapterFiles.get('Problems/Sleepy.md')).toBe([
+    expect(result.path).toBe('Notes/Sleepy.md');
+    expect(adapterFiles.get('Notes/Sleepy.md')).toBe([
       '- Sleepy',
       '\t- chewing gum',
       '\t\t- [[2026/05/2026-05-20-Wednesday|2026-05-20-Wednesday]]',
@@ -61,7 +61,7 @@ describe('problem-solve log command', () => {
     ].join('\n');
     const sleepyPage = {
       basename: 'Sleepy',
-      path: 'Problems/Sleepy.md',
+      path: 'Notes/Sleepy.md',
       frontmatter: {},
       content: existing,
     };
@@ -85,7 +85,7 @@ describe('problem-solve log command', () => {
     const result = await log(editor);
 
     expect(result.status).toBe('logged');
-    expect(adapterFiles.get('Problems/Sleepy.md')).toBe([
+    expect(adapterFiles.get('Notes/Sleepy.md')).toBe([
       '- Sleepy',
       '\t- chewing gum',
       '\t\t- [[2026/05/2026-05-19-Tuesday|2026-05-19-Tuesday]]',
@@ -122,7 +122,7 @@ describe('problem-solve log command', () => {
     expect(result.status).toBe('logged');
     expect(result.problem).toBe('Tired');
     expect(result.solutions).toEqual(['drank caffeine']);
-    expect(adapterFiles.get('Problems/Tired.md')).toBe([
+    expect(adapterFiles.get('Notes/Tired.md')).toBe([
       '- Tired',
       '\t- drank caffeine',
       '\t\t- [[2026/05/2026-05-20-Wednesday|2026-05-20-Wednesday]]',
@@ -149,7 +149,7 @@ describe('problem-solve log command', () => {
     }));
     const tiredPage = {
       basename: 'Tired',
-      path: 'Problems/Tired.md',
+      path: 'Notes/Tired.md',
       frontmatter: {},
       content: [
         '- Tired',
@@ -165,7 +165,7 @@ describe('problem-solve log command', () => {
     expect(result.status).toBe('logged');
     expect(result.problem).toBe('Tired');
     expect(result.solutions).toEqual(['Caffeine']);
-    expect(adapterFiles.get('Problems/Tired.md')).toBe([
+    expect(adapterFiles.get('Notes/Tired.md')).toBe([
       '- Tired',
       '\t- Caffeine',
       '\t\t- [[2026/02/2026-02-19-Thursday|2026-02-19-Thursday]]',
