@@ -108,9 +108,29 @@ function createUnifiedDiff(oldContent, newContent, path) {
   return diff.join('\n');
 }
 
-function confirmProblemLog(diff) {
-  if (typeof window === 'undefined' || typeof window.confirm !== 'function') return true;
-  return window.confirm(`${diff}\n\nLooks good?`);
+function getAddedDiffLines(diff) {
+  return diff
+    .split('\n')
+    .filter(line => line.startsWith('+') && !line.startsWith('+++ '))
+    .map(line => line.slice(1));
+}
+
+function buildProposalBlock(diff) {
+  const addedLines = getAddedDiffLines(diff);
+  const quotedCode = addedLines.map(line => `> ${line}`).join('\n');
+  return [
+    '> [!success] Proposed addition',
+    '> ```markdown',
+    quotedCode,
+    '> ```',
+    '',
+  ].join('\n');
+}
+
+function appendProposalBlock(content, proposalBlock) {
+  const trimmed = content.replace(/\n*$/g, '');
+  if (!trimmed) return proposalBlock;
+  return `${trimmed}\n\n${proposalBlock}`;
 }
 
 class LearningLoopPlugin extends Plugin {
@@ -361,13 +381,28 @@ class LearningLoopPlugin extends Plugin {
     const dateLink = formatDateLink();
     const newContent = appendProblemLog(oldContent, destination.problemName, parsed.solutions, parsed.instanceDetail, dateLink);
     const diff = createUnifiedDiff(oldContent, newContent, destination.path);
+    const proposalBlock = buildProposalBlock(diff);
 
-    if (!confirmProblemLog(diff)) {
-      return { status: 'canceled', path: destination.path, ...parsed, dateLink, diff };
+    await adapter.write(destination.path, appendProposalBlock(oldContent, proposalBlock));
+
+    if (this.app.workspace?.openLinkText) {
+      let newLeaf = false;
+      if (this.app.workspace.rootSplit?.children && this.app.workspace.activeLeaf) {
+        const { created } = this.smartOpenRightPane();
+        newLeaf = created ? false : 'tab';
+      }
+      await this.app.workspace.openLinkText(destination.path.replace(/\.md$/, ''), '', newLeaf);
     }
 
-    await adapter.write(destination.path, newContent);
-    return { status: 'logged', path: destination.path, problem: destination.problemName, ...parsed, dateLink, diff };
+    return {
+      status: 'proposed',
+      path: destination.path,
+      problem: destination.problemName,
+      ...parsed,
+      dateLink,
+      diff,
+      proposalBlock,
+    };
   }
 }
 
