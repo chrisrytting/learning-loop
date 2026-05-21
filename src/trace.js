@@ -105,12 +105,26 @@ async function runRetrieval(editor, thoughtLineIdx, responseLineIdx, blockEnd) {
 
 async function indexCues(editor, blockStart, blockEnd, thoughtLineIdx, responseLineIdx, llOutputLineIdx) {
   if (thoughtLineIdx !== -1 && llOutputLineIdx !== -1) {
-    const cueText = this.extractCueText(editor, thoughtLineIdx, responseLineIdx, llOutputLineIdx);
-    if (cueText) {
-      const allTracePages = this.extractLinks(editor, blockStart, blockEnd);
-      const uniquePages = [...new Set(allTracePages)];
-      if (uniquePages.length > 0) {
-        await this.writeQueriesToPages(cueText, uniquePages);
+    const allTracePages = this.extractLinks(editor, blockStart, blockEnd);
+    const uniquePages = [...new Set(allTracePages)];
+
+    if (uniquePages.length > 0) {
+      const activeFile = this.app.workspace.getActiveFile();
+      const thoughtEndLine = responseLineIdx !== -1 ? responseLineIdx - 1 : llOutputLineIdx - 1;
+
+      let targetLine = -1;
+      for (let i = thoughtLineIdx + 1; i <= thoughtEndLine; i++) {
+        if (editor.getLine(i).trim()) { targetLine = i; break; }
+      }
+
+      if (activeFile && targetLine !== -1) {
+        const thoughtLineText = editor.getLine(targetLine);
+        let blockId = thoughtLineText.match(/\s\^([a-zA-Z0-9-]+)\s*$/)?.[1];
+        if (!blockId) {
+          blockId = this.generateBlockId();
+          editor.replaceRange(` ^${blockId}`, { line: targetLine, ch: thoughtLineText.length });
+        }
+        await this.writeQueriesToPages(`[[${activeFile.basename}#^${blockId}]]`, uniquePages);
       }
     }
   }

@@ -52,6 +52,9 @@ async function createPlugin(files = [], settings = {}) {
 
   const app = {
     commands: { executeCommandById: () => {} },
+    workspace: {
+      getActiveFile: () => ({ basename: 'TestNote', path: 'TestNote.md' }),
+    },
     vault: {
       getFiles: () => files.map((f) => ({ extension: 'md', basename: f.basename, path: f.path || f.basename + '.md' })),
       adapter: {

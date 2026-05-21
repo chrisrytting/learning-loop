@@ -119,7 +119,7 @@ describe('help state machine', () => {
     expect(cursor(editor)).toEqual({ line: 9, ch: '\t\t- '.length });
   });
 
-  test('exiting trace writes query to all pages mentioned anywhere in the trace', async () => {
+  test('exiting trace writes block reference query to all pages mentioned anywhere in the trace', async () => {
     const stressPage = { basename: 'Stress', path: 'Problems/Stress.md', frontmatter: {} };
     const anxietyPage = { basename: 'Anxiety', path: 'Problems/Anxiety.md', frontmatter: {} };
     const burnoutPage = { basename: 'Burnout', path: 'Problems/Burnout.md', frontmatter: {} };
@@ -139,22 +139,26 @@ describe('help state machine', () => {
     const { help } = await createPlugin([stressPage, anxietyPage, burnoutPage]);
     await help(editor);
 
-    // Query should have been written to all pages in the trace (thought + output)
-    expect(stressPage.frontmatter['Queries']).toEqual(["I'm feeling [[Stress]]"]);
-    expect(anxietyPage.frontmatter['Queries']).toEqual(["I'm feeling [[Stress]]"]);
-    expect(burnoutPage.frontmatter['Queries']).toEqual(["I'm feeling [[Stress]]"]);
+    // A block ID should have been appended to the first thought line
+    expect(editor._doc[2]).toMatch(/^\t\t- I'm feeling \[\[Stress\]\] \^[a-z0-9]+$/);
+
+    // A block reference query should have been written to all pages in the trace
+    const blockRef = stressPage.frontmatter['Queries']?.[0];
+    expect(blockRef).toMatch(/^\[\[TestNote#\^[a-z0-9]+\]\]$/);
+    expect(anxietyPage.frontmatter['Queries']).toEqual([blockRef]);
+    expect(burnoutPage.frontmatter['Queries']).toEqual([blockRef]);
   });
 
-  test('exiting trace does not duplicate existing queries', async () => {
+  test('exiting trace does not duplicate existing block reference query', async () => {
     const anxietyPage = {
       basename: 'Anxiety',
       path: 'Problems/Anxiety.md',
-      frontmatter: { 'Queries': ["I'm feeling stressed"] },
+      frontmatter: { 'Queries': ['[[TestNote#^abc123]]'] },
     };
     const editor = createEditor([
       '- [[Learning Loop Trace]] %% fold %%',
       '\t- User Thought / Feeling',
-      "\t\t- I'm feeling stressed",
+      "\t\t- I'm feeling stressed ^abc123",  // block ID already present
       '\t- User Response',
       '\t\t- I need to relax',
       '\t- Learning Loop Output',
@@ -166,6 +170,6 @@ describe('help state machine', () => {
     const { help } = await createPlugin([anxietyPage]);
     await help(editor);
 
-    expect(anxietyPage.frontmatter['Queries']).toEqual(["I'm feeling stressed"]);
+    expect(anxietyPage.frontmatter['Queries']).toEqual(['[[TestNote#^abc123]]']);
   });
 });

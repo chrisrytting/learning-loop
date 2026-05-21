@@ -72,7 +72,27 @@ async function insertSearchResults(editor, mentionedLinks, cueText, blockEnd) {
   this.enterInsertMode(editor);
 }
 
-function buildQueryIndex() {
+function generateBlockId() {
+  return Math.random().toString(36).slice(2, 8);
+}
+
+async function resolveQuery(query) {
+  const match = query.match(/^\[\[([^\]#^]+)#\^([a-zA-Z0-9-]+)\]\]$/);
+  if (!match) return query;
+  const [, basename, blockId] = match;
+  const allFiles = this.app.vault.getFiles();
+  const file = allFiles.find(f => f.extension === 'md' && f.basename === basename);
+  if (!file) return query;
+  const cache = this.app.metadataCache.getFileCache(file);
+  const block = cache?.blocks?.[blockId];
+  if (!block) return query;
+  const content = await this.app.vault.read(file);
+  const lines = content.split('\n');
+  const lineText = lines[block.position.start.line] || '';
+  return lineText.replace(/\s*\^[a-zA-Z0-9-]+\s*$/, '').replace(/^[\s\t]*[-*]?\s*/, '').trim();
+}
+
+async function buildQueryIndex() {
   const allFiles = this.app.vault.getFiles();
   const problemFiles = allFiles.filter(f => f.extension === 'md' && f.path.startsWith('Problems/'));
   const entries = [];
@@ -81,7 +101,8 @@ function buildQueryIndex() {
     const queries = cache?.frontmatter?.['Queries'];
     if (!Array.isArray(queries)) continue;
     for (const q of queries) {
-      entries.push({ query: q, page: file.basename });
+      const resolvedQuery = await this.resolveQuery(q);
+      entries.push({ query: resolvedQuery, page: file.basename });
     }
   }
   return entries;
@@ -91,7 +112,7 @@ async function runAiSearch(cueText, excludeNames) {
   let aiMatches = [];
   let aiWarning = null;
 
-  const queryIndex = this.buildQueryIndex();
+  const queryIndex = await this.buildQueryIndex();
   if (queryIndex.length === 0) return { aiMatches, aiWarning };
 
   const allFiles = this.app.vault.getFiles();
@@ -158,6 +179,8 @@ module.exports = {
   fileToLink,
   retrieveLinkedPages,
   insertSearchResults,
+  generateBlockId,
+  resolveQuery,
   buildQueryIndex,
   runAiSearch,
   writeQueriesToPages,
