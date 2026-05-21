@@ -4,6 +4,7 @@ const retrieval = require('./retrieval');
 const smartOpenRight = require('./smartOpenRight');
 const syncInstructions = require('./syncInstructions');
 const LearningLoopSettingTab = require('./settings');
+const { logAiCost } = require('./costLogger');
 
 const DEFAULT_SETTINGS = { anthropicApiKey: '', smartOpenOnCmdClick: false };
 const PROBLEMS_DIR = 'Problems';
@@ -317,6 +318,8 @@ class LearningLoopPlugin extends Plugin {
     if (response.status < 200 || response.status >= 300) {
       throw new Error(`API error ${response.status}: ${response.text}`);
     }
+
+    await logAiCost(this.app, { command: 'log', model: ANTHROPIC_MODEL, usage: response.json?.usage });
 
     const parsed = extractJsonObject(response.json?.content?.[0]?.text);
     return {
