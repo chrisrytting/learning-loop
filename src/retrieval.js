@@ -1,6 +1,7 @@
 'use strict';
 
 const { requestUrl } = require('obsidian');
+const { logAiCost } = require('./costLogger');
 
 function extractLinks(editor, startLine, endLine) {
   const links = [];
@@ -126,6 +127,7 @@ async function runAiSearch(cueText, excludeNames) {
       }
 
       const data = response.json;
+      await logAiCost(this.app, { command: 'help:retrieval', model: 'claude-haiku-4-5-20251001', usage: data.usage });
       const raw = (data.content?.[0]?.text ?? '[]').replace(/^```[a-z]*\n?/i, '').replace(/```$/, '').trim();
       const parsed = JSON.parse(raw);
       const validNames = new Set(queryIndex.map(e => e.page));
