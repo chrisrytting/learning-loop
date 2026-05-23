@@ -1,6 +1,7 @@
 const { Plugin, parseFrontMatterTags, requestUrl } = require('obsidian');
 const trace = require('./trace');
 const retrieval = require('./retrieval');
+const problemIdentification = require('./problemIdentification');
 const smartOpenRight = require('./smartOpenRight');
 const syncInstructions = require('./syncInstructions');
 const LearningLoopSettingTab = require('./settings');
@@ -226,6 +227,7 @@ class LearningLoopPlugin extends Plugin {
 
     if (selection) {
       trace.createTraceFromSelection.call(this, editor);
+      await trace.identifyProblemInTrace.call(this, editor);
       return;
     }
 
@@ -263,6 +265,7 @@ class LearningLoopPlugin extends Plugin {
     const thoughtText = stripListMarker(text);
     if (!thoughtText) return;
     trace.createTraceFromLine.call(this, editor, cursor, thoughtText);
+    await trace.identifyProblemInTrace.call(this, editor);
   }
 
   async readProblemFiles() {
@@ -376,6 +379,7 @@ Object.assign(
   syncInstructions,
   retrieval,
   smartOpenRight,
+  problemIdentification,
   { extractCueText: trace.extractCueText },
 );
 

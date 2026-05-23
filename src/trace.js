@@ -103,6 +103,81 @@ async function runRetrieval(editor, thoughtLineIdx, responseLineIdx, blockEnd) {
   await this.insertSearchResults(editor, mentionedLinks, cueText, blockEnd);
 }
 
+function extractThoughtText(editor, thoughtLineIdx, responseLineIdx) {
+  const thoughtIndentLen = editor.getLine(thoughtLineIdx).match(/^(\s*)/)[1].length;
+  const thoughtEndLine = responseLineIdx !== -1 ? responseLineIdx - 1 : editor.lineCount() - 1;
+  const lines = [];
+  for (let i = thoughtLineIdx + 1; i <= thoughtEndLine; i++) {
+    const line = editor.getLine(i);
+    if (!line.trim()) continue;
+    if (line.match(/^(\s*)/)[1].length <= thoughtIndentLen) break;
+    const text = line.replace(/^[\s\t]*-\s*/, '').trim();
+    if (text && !/^\[\[[^\]]+\]\]$/.test(text)) lines.push(text);
+  }
+  return lines.join(' ').trim();
+}
+
+function getThoughtBulletPrefix(editor, thoughtLineIdx, responseLineIdx) {
+  const thoughtIndentLen = editor.getLine(thoughtLineIdx).match(/^(\s*)/)[1].length;
+  const end = responseLineIdx !== -1 ? responseLineIdx : editor.lineCount();
+  for (let i = thoughtLineIdx + 1; i < end; i++) {
+    const line = editor.getLine(i);
+    if (!line.trim()) continue;
+    if (line.match(/^(\s*)/)[1].length <= thoughtIndentLen) continue;
+    const match = line.match(/^(\s*-\s+)/);
+    if (match) return match[1];
+  }
+  const sectionIndent = editor.getLine(thoughtLineIdx).match(/^(\s*)/)[1];
+  return `${sectionIndent}\t- `;
+}
+
+function insertProblemLink(editor, thoughtLineIdx, responseLineIdx, problemName) {
+  const bulletPrefix = getThoughtBulletPrefix(editor, thoughtLineIdx, responseLineIdx);
+  const linkLine = `${bulletPrefix}[[${problemName}]]`;
+  const insertLine = responseLineIdx !== -1 ? responseLineIdx : thoughtLineIdx + 1;
+
+  for (let i = thoughtLineIdx + 1; i < insertLine; i++) {
+    if (editor.getLine(i).includes(`[[${problemName}]]`)) return false;
+  }
+
+  editor.replaceRange(`${linkLine}\n`, { line: insertLine, ch: 0 });
+  return true;
+}
+
+async function identifyProblemInTrace(editor) {
+  const cursor = editor.getCursor();
+  const block = findTraceBlock(editor, cursor.line);
+  if (!block) return { status: 'no-trace' };
+
+  const sections = findTraceSections(editor, block.blockStart, block.blockEnd);
+  const { thoughtLineIdx, responseLineIdx } = sections;
+  if (thoughtLineIdx === -1) return { status: 'no-thought-section' };
+
+  const utterance = extractThoughtText(editor, thoughtLineIdx, responseLineIdx);
+  if (!utterance) return { status: 'empty-utterance' };
+
+  const result = await this.identifyProblem(utterance, {
+    app: this.app,
+    apiKey: this.settings.anthropicApiKey,
+  });
+
+  if (result.status !== 'matched') return result;
+
+  if (result.isNew) {
+    await this.ensureProblemPage(this.app, result.problemName);
+  }
+
+  const updatedSections = findTraceSections(editor, block.blockStart, block.blockEnd);
+  insertProblemLink(
+    editor,
+    thoughtLineIdx,
+    updatedSections.responseLineIdx,
+    result.problemName,
+  );
+
+  return result;
+}
+
 async function indexCues(editor, blockStart, blockEnd, thoughtLineIdx, responseLineIdx, llOutputLineIdx) {
   if (thoughtLineIdx !== -1 && llOutputLineIdx !== -1) {
     const cueText = this.extractCueText(editor, thoughtLineIdx, responseLineIdx, llOutputLineIdx);
@@ -130,5 +205,6 @@ module.exports = {
   createTraceFromLine,
   addResponse,
   runRetrieval,
+  identifyProblemInTrace,
   indexCues,
 };
