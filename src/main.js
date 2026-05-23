@@ -11,6 +11,7 @@ const { Plugin } = require('obsidian');
 const LearningLoopSettingTab = require('./settings');
 const { helpCommand } = require('./commands/help');
 const { logCommand } = require('./commands/log');
+const { OptionsModal } = require('./ui/OptionsModal');
 
 const DEFAULT_SETTINGS = {
   anthropicApiKey: '',
@@ -29,14 +30,22 @@ class LearningLoopPlugin extends Plugin {
     await this.loadSettings();
     this.addSettingTab(new LearningLoopSettingTab(this.app, this));
 
-    this.addRibbonIcon('repeat-2', 'Learning Loop: Help', () => {
-      this.app.commands.executeCommandById('learning-loop:help');
+    this.addRibbonIcon('repeat-2', 'Learning Loop: Options', () => {
+      this.app.commands.executeCommandById('learning-loop:options');
     });
 
+    // Primary entry point — opens the Options modal (Help vs Log chooser)
+    this.addCommand({
+      id: 'options',
+      name: 'Options',
+      icon: 'repeat-2',
+      editorCallback: (editor) => new OptionsModal(this.app, editor, this.settings).open(),
+    });
+
+    // Direct commands still available for power users who know what they want
     this.addCommand({
       id: 'help',
       name: 'Help',
-      icon: 'repeat-2',
       editorCallback: (editor) => helpCommand(this.app, editor, this.settings),
     });
 

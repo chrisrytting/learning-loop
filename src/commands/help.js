@@ -3,8 +3,7 @@
 /**
  * commands/help.js
  *
- * Entry point for the Help command. Thin dispatcher — reads the editor context,
- * opens HelpModal, and gets out of the way.
+ * Reads the editor context, opens HelpModal
  */
 
 const { HelpModal } = require('../ui/HelpModal');
