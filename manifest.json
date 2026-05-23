@@ -2,7 +2,7 @@
   "id": "learning-loop",
   "name": "Learning Loop",
   "description": "Helps run Learning Loop traces and log problem-solution examples.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Chris Rytting",
   "isDesktopOnly": false,
   "minAppVersion": "0.15.0"
