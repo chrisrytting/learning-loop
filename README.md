@@ -1,140 +1,74 @@
-This plugin helps you efficiently solve problems you often face. You write down a problem you're facing and the plugin finds notes you've written about related problems in the past — including what solved them.
+![Learning Loop](assets/learning-loop.png)
+# Learning Loop
 
-# A Concrete Example
+**tl;dr** Activate this plugin in Obsidian, write a note describing a problem you're facing (and optionally a solution that has worked for you), press `Cmd+L`, choose **Help** or **Log**, and the plugin will help you to build a library of problems **you've** faced and solutions that have worked for **you**, instead of generic AI slop. (More description and help on setup below.)
 
-Let's say it's Jan 15 and you realize you're feeling stressed, and it's unpleasant so you want to feel more calm. You've dealt with stress before and have an `[[Stress]]` page in your Obsidian vault (i.e., your personal database of notes) (inside a `Problems/` folder) that tracks what's worked and what hasn't:
+## Overview
 
-> - solutions
-> 	- Journal for 20 minutes
-> 		- Tried Dec 3, 2025. Worked great
-> - ineffective solutions
-> 	- breathwork
-> 		- Tried Dec 3, 2025. Still felt awful
+An Obsidian plugin for building a personal library of problems you recurrently face (e.g., Stress, Indecision, Lack of Motivation, etc.) and solutions you've found for them (e.g., Go for a walk, Journal for 20 minutes, etc.) — and helping you immediately find the best solutions to those problems in the moment you actually face them.
 
-That page is your personal knowledge base for stress — built up from real experience, not generic advice.
+## How it works
 
-Now it's Jan 15 and you're in your daily note. You write:
+You write notes in Obsidian describing what problems you face and what solutions are working / not working for you. The plugin uses AI to help you to automatically organize these notes to build the library mentioned above.
 
-> Feeling really stressed this morning.
+The plugin revolves around a `Problems/` folder in your vault ([?](https://obsidian.md/help/vault#:~:text=A%20vault%20is%20a%20folder%20on%20your%20local%20file%20system%20where%20Obsidian%20stores%20your%20notes.)). Each file in it tracks a recurring difficulty and what's worked (or hasn't) for you personally.
 
-Without this plugin, you might manually search for your `[[Stress]]` page, open it, and read through it to see what's worked before. In reality, you probably have related solutions in other pages too, like `[[Anxiety]]`, `[[Overwhelm]]`, etc. But it's tedious to manually navigate to all these pages and keep track of which one helped.
+You run the plugin by pressing `Cmd+L` after selecting or writing text in your notes, and then choosing **Help** or **Log**, the two functions of the plugin so far. Here's what they do:
 
-Here's where this plugin helps: it helps you successfully execute a "**Learning Loop Trace**", which is where you write down your current problem, find related pages, try the solutions they suggest, and update your library so future-you benefits from today's experience, over time building up a library of wisdom about how to solve problems you often face.
+### 1. Log
 
-Instead of manually navigating to `[[Stress]]`, press `⌘L`. The plugin sees the word "stressed" in your note, matches it against the tags on your Problems/ pages, and inserts `[[Stress]]` right there. You can glance (either by hovering over the link while holding command, or by opening it in a new tab, or by clicking on it) at what's worked before, and try doing that now. You can also try new solutions and see whether they help. You can also brainstorm other related pages by typing `[[` and typing the title of other notes you've made to track problems and their solutions. As you read these pages, you write in the current trace your experience and observations. 
+The text you selected or wrote in your notes describes a problem you solved and how (any note works, but your Daily Note is a good default place to write). Given this, when you press `Cmd+L` and choose **Log**, the plugin will:
 
- Then  write what you tried today, and press `⌘L` a few more times to tag the page — updating your library so future-you benefits from today's experience.
+1. Parse your note text to extract both the problem and what you did to solve it
+2. Show you the result to confirm or edit (did it get the problem and the solution right? Correct it if necessary)
+3. Write the entry to the appropriate `Problems/` file and solution section therein
 
+**Example:** On May 1, 2026, you write in a note "I felt stressed until I wrote down my most important goal for the day on a sticky note, cleared my desk and desktop". You press `Cmd+L` and click **Log**. The system shows you its proposal for the general problem and solution you've described (problem: `Stress`, solution: `Reduce clutter, write most important goal on a sticky note`), and once you edit/accept and click `Log it`, your `Problems/Stress.md` page is updated with that solution and a reference to today's note, which describes concrete evidence of the efficacy of that solution. Now you have more data on how to best solve your Stress.
 
-# How it works
+### 2. Help
 
-> **Assumption:** This guide assumes you have already mapped **Learning Loop Step** to `⌘L` in Obsidian's Hotkeys settings (`⌘,` → Hotkeys → search "Learning Loop Step"). You can use any hotkey you like, but `⌘L` is what's used throughout.
+Sometimes you're in the thick of the problem, though, and you want help deciding what to do for a problem you've already tried solutions for and logged that data to your Problems library. In this case, you write what's going on/what you're experiencing, press `Cmd+L`, click **Help**, and the plugin will:
 
-The plugin exposes a single command: **Learning Loop Step**. You press it repeatedly and it advances through a sequence of stages depending on where your cursor is. Each press does exactly one thing and leaves your cursor ready for the next.
+1. Identify which problem is closest to your current situation
+2. Surface what it considers to be relevant pages from your `Problems/` folder where you can find solutions that have worked for you in the past. If you click "Accept" on a page, it proceeds to:
+3. Summarize the solutions you've found to work in the past and quote what you wrote about the moments where they worked.
 
-The stages all happen inside a **Learning Loop Trace** — a structured block in your daily note that captures a moment, links it to your problem library, and records your review. It looks like this when complete:
+**Example:** Later in the month, on May 23, 2026, you write in a note `Feeling really stressed this morning.` You press `Cmd+L` → Help. You're shown `[[Stress]]` as a relevant page, and the solutions that have worked for you in the past (including the one from the example above on May 1, 22 days earlier) are summarized for you, using the language you generated and approved of.
+
+![](assets/image.png)
+
+Also, a `Learning Loop Trace` block now envelops the cue you typed and what the plugin linked to, so you have persistent and immediate access to the pages it linked to. 
 
 ```
-- Learning Loop Trace
+- [[Learning Loop Trace]]
 	- Feeling really stressed this morning.
-	- [[Stress]]
-	- Review
-		- tags: stress, stress
-			- pages: [[Stress]]
+	- [[Stressed]]
 ```
 
-Here's how you get there, one `⌘L` at a time:
-
-### Stage 1 — Empty line → start a trace
-
-Press `⌘L` on an **empty line**. The plugin inserts the trace block header and drops your cursor inside it:
-
-```
-- Learning Loop Trace
-	-
-```
-
-Type whatever you're experiencing. This is your raw observation — the thing that happened.
-
-### Stage 2 — Text on line → surface matching problem pages
-
-Press `⌘L` while your cursor is on a **line with text** (or with text selected). The plugin scans your `Problems/` folder and checks whether any of their frontmatter `tags` appear in your text. If something matches, it inserts the wiki-link below your line:
-
-```
-Feeling really stressed this morning.
-[[Stress]]
-```
-
-This is the link back to your personal knowledge base for that problem. Open it to see what's worked before, then come back and write what you tried today.
-
-### Stage 3 — Inside the trace block → add a Review section
-
-Press `⌘L` while your cursor is **inside** the trace block. The plugin appends a `Review` section with a `tags:` prompt:
-
-```
-- Learning Loop Trace
-	- Feeling really stressed this morning.
-	- [[Stress]]
-	- Review
-		- tags:
-```
-
-Fill in the tags you want to assign to your problem pages (e.g. `stress, stress`). This is how you keep your library up to date — tagging pages makes them easier to find and query later.
-
-### Stage 4 — `tags:` filled → add a `pages:` prompt
-
-Press `⌘L` again. The plugin adds a `pages:` line below `tags:`:
-
-```
-		- tags: stress, stress
-			- pages:
-```
-
-Type the wiki-links of the pages you want to tag (e.g. `[[Stress]]`). These are the Problems/ pages that should receive the tags you just wrote.
-
-### Stage 5 — Both filled → write tags to page frontmatter
-
-Press `⌘L` one final time. The plugin reads your `tags:` and `pages:` lines and writes those tags into the YAML frontmatter of each linked page (skipping duplicates). Your cursor lands on a new bullet, ready for your next note.
-
-Now `[[Stress]]` has updated frontmatter tags — making it findable via search, graph view, and Dataview queries next time stress comes up.
-
----
-
-## Quick Reference
-
-| Cursor position | `⌘L` does |
-|---|---|
-| Empty line | Insert `Learning Loop Trace` block |
-| Line with text | Find matching `Problems/` pages and insert links |
-| Inside block, no Review | Add `Review` + `tags:` prompt |
-| Inside block, `tags:` filled | Add `pages:` prompt |
-| Inside block, both filled | Write tags to page frontmatter |
-
----
+Because there is a reference to the [[Learning Loop Trace]] page, this additionally allows you to find a collected list of all the times you've used this approach, collected in one place in the `Linked References` section of the [[Learning Loop Trace]] page.
 
 ## Setup
 
-1. Create a `Problems/` folder at the root of your vault. Put your problem/topic pages inside it (e.g. `Problems/Stress.md`, `Problems/Nausea.md`).
-2. Add frontmatter `tags` to each problem page — these are the keywords the plugin matches against:
+1. Open Obsidian (see footnote 1 if you haven't installed it yet)
+2. Install Learning Loop from the [community plugins browser](https://obsidian.md/plugins?id=learning-loop), or clone it manually into your vault's `.obsidian/plugins/` folder (see footnote 2 if you don't know how to do this)
+3. Enable Learning Loop by clicking Settings (see footnote 3 if you don't know where this is) → Community Plugins
+4. Add your Anthropic API key in Settings → Learning Loop (see footnote 4 if you don't know where this is)
+5. Type a problem you often face and a solution that has worked for that problem. Press `Cmd+L` and click **Log** — the `Problems/` folder (and a problem page corresponding to that problem) is created automatically when you first log something
 
-```yaml
 ---
-tags:
-  - stress
-  - stress
----
+## Footnotes
+**1 — Installing Obsidian:** Download Obsidian at https://obsidian.md/download and run the installer.
+
+**2 — Installing the plugin manually via git clone:** Open a terminal (Mac: press `Cmd+Space`, type `Terminal`, press `Enter` — Windows: press `Win+R`, type `cmd`, press `Enter`). Then run the following commands, replacing `<path-to-vault>` with the path to your vault folder on disk (see footnote 5):
+
 ```
+#If you've never been in a terminal, you type each line below and press enter to run it.
 
-3. Assign `⌘L` (or any hotkey) to **Learning Loop Step** in Obsidian's Hotkeys settings.
+cd <path-to-vault>/.obsidian/plugins 
+git clone https://github.com/chrisrytting/learning-loop-obsidian.git learning-loop
+```
+**3 — Finding your settings:** In Obsidian, click the gear icon in the bottom left, or in the Obsidian menu at the top left in the system menu bar, and then click Settings.
 
+**4 — Finding your Anthropic API key:** Go to [Anthropic](https://console.anthropic.com/), click on your user icon in the top right, and then click "API Keys". Create a new key if you don't have one yet, copy it, and paste it into the API key field in Settings → Learning Loop.
 
-# FAQs
-
-> Why wouldn't I just ask AI or Google how to solve these problems?
-
-You could! But AI is better for exploring new solutions than for tracking what *you* know has worked before. It's inclined to make things up or leave things out when reading over a big chunk of personal notes. Your Problems/ pages are grounded in your actual experience — that's harder to fake. But if you don't believe me, try it and let me know how the experiment goes!
-
-Roadmap is to expand beyond Pains and Solutions.
-
-
-[^1]: Learning loop is a general philosophy and framework for not forgetting wisdom you happen upon over the course of your life. See the [Learning Loop Podcast YouTube channel](https://www.youtube.com/@christopherrytting) for a primer.
+**5 — Finding your vault path:** In Obsidian, go to Settings → About — the full path is shown under *Vault path*. Alternatively: on Mac, drag your vault folder into a Terminal window and the path will be pasted automatically. On Windows, open File Explorer, navigate to your vault folder, and copy the address bar.

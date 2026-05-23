@@ -68,8 +68,8 @@ function writeTrace(editor, traceData) {
   const { fromLine, toLine, ch1, thought, problemName, retrievedPages } = traceData;
 
   const lines = [];
-  lines.push(`- [[Learning Loop Trace]] %% fold %%`);
-  if (thought) lines.push(`\t- _${thought}_`);
+  lines.push(`- [[Learning Loop Trace]]`);
+  if (thought) lines.push(`\t- ${thought}`);
   if (problemName) lines.push(`\t- [[${problemName}]]`);
   if (retrievedPages.length > 0) {
     lines.push('\t- ' + retrievedPages.map(p => `[[${p}]]`).join(', '));

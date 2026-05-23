@@ -95,6 +95,26 @@ function getRetrievePages(app, mentionedNames) {
   return results;
 }
 
+/**
+ * Read and deep-parse a single problem file into structured solution + instance data.
+ * Call this after finding a page name by any means (AI search, Retrieve Pages, etc.)
+ * to get the display content independently of how the page was found.
+ *
+ * @param {import('obsidian').App} app
+ * @param {string} pageName - basename of the problem file (no .md)
+ * @returns {Promise<Array<{
+ *   text: string,
+ *   instances: Array<{ date: string, detail: string|null }>
+ * }> | null>} null if the file doesn't exist
+ */
+async function readProblemSummary(app, pageName) {
+  const file = app.vault.getFiles()
+    .find(f => f.extension === 'md' && f.basename === pageName && f.path.startsWith(`${PROBLEMS_DIR}/`));
+  if (!file) return null;
+  const content = await app.vault.adapter.read(file.path);
+  return parseProblemSummary(content);
+}
+
 // ─── Writing ─────────────────────────────────────────────────────────────────
 
 /**
@@ -177,6 +197,66 @@ function parseProblemFile(basename, content) {
   return { file: basename.replace(/\.md$/, ''), solutions };
 }
 
+/**
+ * Deep-parse a problem file into structured solution + instance data.
+ * Used by Help to show the user what has worked in the past.
+ *
+ * Returns:
+ *   Array of {
+ *     text: string,           — the solution phrase
+ *     instances: Array of {
+ *       date: string,         — human-readable date label
+ *       detail: string|null,  — what the user wrote about that instance
+ *     }
+ *   }
+ *
+ * File format assumed:
+ *   - Problem Name
+ *   \t- Solution text
+ *   \t\t- [[date link]]
+ *   \t\t\t- instance detail
+ */
+function parseProblemSummary(content) {
+  const lines = content.split('\n');
+  const solutions = [];
+  let currentSolution = null;
+  let currentInstance = null;
+  let inFrontmatter = false;
+
+  for (const line of lines) {
+    if (line.trim() === '---') { inFrontmatter = !inFrontmatter; continue; }
+    if (inFrontmatter) continue;
+
+    // Solution line: exactly one leading tab
+    if (/^\t-\s/.test(line) && !/^\t\t/.test(line)) {
+      currentSolution = { text: line.replace(/^\t-\s+/, '').trim(), instances: [] };
+      solutions.push(currentSolution);
+      currentInstance = null;
+      continue;
+    }
+
+    // Date line: exactly two leading tabs
+    if (/^\t\t-\s/.test(line) && !/^\t\t\t/.test(line)) {
+      if (!currentSolution) continue;
+      const raw = line.replace(/^\t\t-\s+/, '').trim();
+      // Extract display label from [[path|label]] or [[label]]
+      const wikiMatch = raw.match(/\[\[[^\]]*\|([^\]]+)\]\]/) || raw.match(/\[\[([^\]]+)\]\]/);
+      const date = wikiMatch ? wikiMatch[1] : raw;
+      currentInstance = { date, detail: null };
+      currentSolution.instances.push(currentInstance);
+      continue;
+    }
+
+    // Instance detail: three or more leading tabs
+    if (/^\t\t\t-\s/.test(line) && currentInstance && currentInstance.detail === null) {
+      currentInstance.detail = line.replace(/^\t\t\t-\s+/, '').trim();
+      continue;
+    }
+  }
+
+  return solutions;
+}
+
 function findDestination(app, problemName) {
   const files = app.vault.getFiles()
     .filter(f => f.extension === 'md' && f.path.startsWith(`${PROBLEMS_DIR}/`));
@@ -246,6 +326,8 @@ function titleCase(str) {
 module.exports = {
   PROBLEMS_DIR,
   readProblemFiles,
+  readProblemSummary,
+  parseProblemSummary,  // exported for tests
   listProblemNames,
   buildQueryIndex,
   getRetrievePages,

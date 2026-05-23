@@ -24,7 +24,7 @@
 const { Modal, Setting, Notice } = require('obsidian');
 const { identifyProblem } = require('../ai/identifyProblem');
 const { searchProblems } = require('../ai/searchProblems');
-const { listProblemNames, buildQueryIndex, getRetrievePages, ensureProblemPage, writeQueriesToPages } = require('../vault/problems');
+const { listProblemNames, buildQueryIndex, getRetrievePages, readProblemSummary, ensureProblemPage, writeQueriesToPages } = require('../vault/problems');
 const { writeTrace } = require('../vault/trace');
 
 class HelpModal extends Modal {
@@ -176,7 +176,7 @@ class HelpModal extends Modal {
   async renderStep2() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl('h2', { text: 'Relevant pages' });
+    contentEl.createEl('h2', { text: 'What has helped before' });
 
     const statusEl = contentEl.createEl('p', { text: 'Searching…', cls: 'll-status' });
 
@@ -193,35 +193,79 @@ class HelpModal extends Modal {
       apiKey,
     );
 
-    const allPages = [
-      ...retrievePages.map(p => ({ name: p.name, source: 'retrieve' })),
-      ...aiMatches.map(name => ({ name, source: 'ai' })),
-    ];
+    // Always include the identified problem page first, then related pages, deduplicated
+    const allPageNames = [
+      ...(this.problemName ? [this.problemName] : []),
+      ...retrievePages.map(p => p.name),
+      ...aiMatches,
+    ].filter((name, i, arr) => arr.indexOf(name) === i);
 
-    statusEl.empty();
+    // Read the actual content of each page
+    const summaries = await Promise.all(
+      allPageNames.map(async name => ({
+        name,
+        solutions: await readProblemSummary(this.app, name) ?? [],
+      }))
+    );
 
-    if (allPages.length === 0 && !warning) {
-      statusEl.setText('No related pages found.');
-    } else {
-      statusEl.setText('Select pages to include in the trace:');
-    }
+    statusEl.remove();
 
     if (warning) {
       contentEl.createEl('p', { text: warning, cls: 'll-warning' });
     }
 
-    // Checkboxes for each page
-    const selected = new Set(allPages.map(p => p.name)); // all selected by default
-    for (const page of allPages) {
-      new Setting(contentEl)
-        .setName(`[[${page.name}]]`)
-        .setDesc(page.source === 'ai' ? 'AI suggestion' : 'From "Retrieve Pages"')
-        .addToggle(toggle => toggle
-          .setValue(true)
-          .onChange(v => {
-            if (v) selected.add(page.name);
-            else selected.delete(page.name);
-          }));
+    if (summaries.length === 0) {
+      contentEl.createEl('p', {
+        text: 'No related pages found yet. Log solutions as you find them and they\'ll show up here.',
+        cls: 'll-status',
+      });
+    }
+
+    // Render each page as a card with its solutions and recent instances
+    const selected = new Set(allPageNames); // all selected by default
+    for (const { name, solutions } of summaries) {
+      const card = contentEl.createDiv({ cls: 'll-page-card' });
+
+      // Header row: page name + deselect toggle
+      const cardHeader = card.createDiv({ cls: 'll-page-card-header' });
+      cardHeader.createEl('strong', { text: name });
+      const toggle = cardHeader.createEl('input', { type: 'checkbox' });
+      toggle.checked = true;
+      toggle.addEventListener('change', () => {
+        if (toggle.checked) selected.add(name);
+        else selected.delete(name);
+      });
+
+      if (solutions.length === 0) {
+        card.createEl('p', { text: 'No solutions logged yet.', cls: 'll-muted' });
+        continue;
+      }
+
+      // List solutions, each with up to 2 most recent instances that have detail
+      for (const solution of solutions) {
+        const solutionEl = card.createDiv({ cls: 'll-solution' });
+        solutionEl.createEl('span', { text: solution.text, cls: 'll-solution-text' });
+
+        const potentInstances = solution.instances
+          .filter(i => i.detail)
+          .slice(-2); // most recent two with written detail
+
+        if (potentInstances.length > 0) {
+          const instanceList = solutionEl.createEl('ul', { cls: 'll-instances' });
+          for (const instance of potentInstances) {
+            instanceList.createEl('li', {
+              text: `${instance.date}: "${instance.detail}"`,
+              cls: 'll-instance',
+            });
+          }
+        } else if (solution.instances.length > 0) {
+          // Has instances but no written detail — just show the count
+          solutionEl.createEl('span', {
+            text: ` (tried ${solution.instances.length}×)`,
+            cls: 'll-muted',
+          });
+        }
+      }
     }
 
     // Done button
@@ -245,7 +289,10 @@ class HelpModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
 
-    // Write the compact trace to the note
+    // Write the compact trace to the note.
+    // problemName is written as its own line in writeTrace, so exclude it
+    // from retrievedPages to avoid duplicating it.
+    const relatedPages = this.selectedPages.filter(p => p !== this.problemName);
     writeTrace(this.editor, {
       fromLine: this.thought.fromLine,
       toLine: this.thought.toLine,
@@ -253,7 +300,7 @@ class HelpModal extends Modal {
       ch1: this.thought.ch1,
       thought: this.thought.text,
       problemName: this.problemName,
-      retrievedPages: this.selectedPages,
+      retrievedPages: relatedPages,
     });
 
     // Index the cue text on the selected pages
