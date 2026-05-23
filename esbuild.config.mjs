@@ -13,6 +13,7 @@ const context = await esbuild.context({
   external: [
     'obsidian',
     'electron',
+    '@anthropic-ai/claude-agent-sdk',
     ...builtinModules,
   ],
   format: 'cjs',

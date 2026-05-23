@@ -41,7 +41,7 @@ function createEditor(lines, cursorLine = 0, cursorCh = 0, selection = null) {
  * Accepts an optional `files` array for vault/metadata mocking.
  */
 async function createPlugin(files = [], settings = {}) {
-  const LearningLoopPlugin = require('../main.js');
+  const LearningLoopPlugin = require('../src/main.js');
 
   const commands = {};
   const adapterFiles = new Map();
