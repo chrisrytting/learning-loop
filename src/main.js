@@ -39,6 +39,7 @@ class LearningLoopPlugin extends Plugin {
       id: 'options',
       name: 'Options',
       icon: 'repeat-2',
+      hotkeys: [{ modifiers: ['Mod'], key: 'l' }],
       editorCallback: (editor) => new OptionsModal(this.app, editor, this.settings).open(),
     });
 
