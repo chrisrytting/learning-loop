@@ -9,12 +9,12 @@
  * Returns a plain result object — no side effects, no vault writes, no UI.
  */
 
-const { callClaude, extractJsonObject } = require('./client');
+const { callAI, extractJsonObject } = require('./client');
 
 /**
  * @param {string} utterance     - The user's thought text
  * @param {string[]} existingNames - Basenames of all files in Problems/
- * @param {string} apiKey
+ * @param {object} settings
  * @returns {Promise<{
  *   status: 'matched' | 'unidentified' | 'no-api-key' | 'empty' | 'error',
  *   problemName?: string,
@@ -23,9 +23,9 @@ const { callClaude, extractJsonObject } = require('./client');
  *   message?: string,
  * }>}
  */
-async function identifyProblem(utterance, existingNames, apiKey) {
+async function identifyProblem(utterance, existingNames, settings) {
   if (!utterance.trim()) return { status: 'empty' };
-  if (!apiKey) return { status: 'no-api-key' };
+  if (settings?.aiProvider === 'anthropic' && !settings?.anthropicApiKey) return { status: 'no-api-key' };
 
   const prompt = [
     'You are helping the user identify which learning problem their thought relates to.',
@@ -43,7 +43,7 @@ async function identifyProblem(utterance, existingNames, apiKey) {
   ].join('\n');
 
   try {
-    const text = await callClaude(apiKey, prompt, 256);
+    const text = await callAI(settings, prompt, 256);
     const parsed = extractJsonObject(text);
 
     const confidence = Number(parsed.confidence ?? 0);

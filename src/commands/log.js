@@ -24,7 +24,7 @@ async function logCommand(app, editor, settings) {
   if (!input.trim()) return;
 
   const problemFiles = await readProblemFiles(app);
-  const parsed = await parseLogEntry(input, problemFiles, settings.anthropicApiKey);
+  const parsed = await parseLogEntry(input, problemFiles, settings);
 
   const modal = new LogConfirmModal(app, parsed, async (confirmed) => {
     if (!confirmed) return;

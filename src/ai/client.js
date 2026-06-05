@@ -1,25 +1,11 @@
 'use strict';
 
-/**
- * ai/client.js
- *
- * Single place for all Anthropic API calls.
- * Every other module that needs AI goes through callClaude() — never calls requestUrl directly.
- */
-
 const { requestUrl } = require('obsidian');
 
 const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
+const DEFAULT_OLLAMA_MODEL = 'qwen3:latest';
+const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
 
-/**
- * Call the Claude API with a plain string prompt.
- * Returns the raw text response.
- *
- * @param {string} apiKey
- * @param {string} prompt
- * @param {number} maxTokens
- * @returns {Promise<string>}
- */
 async function callClaude(apiKey, prompt, maxTokens = 400) {
   if (!apiKey) throw new Error('No Anthropic API key — add one in plugin settings.');
 
@@ -45,33 +31,54 @@ async function callClaude(apiKey, prompt, maxTokens = 400) {
   return response.json?.content?.[0]?.text ?? '';
 }
 
-/**
- * Parse the first JSON object out of a Claude response string.
- * Handles code-fenced responses gracefully.
- *
- * @param {string} text
- * @returns {object}
- */
+async function callOllama(settings, prompt, maxTokens = 400) {
+  const baseUrl = settings.ollamaBaseUrl || DEFAULT_OLLAMA_BASE_URL;
+  const model = settings.ollamaModel || DEFAULT_OLLAMA_MODEL;
+
+  const response = await requestUrl({
+    url: `${baseUrl}/v1/chat/completions`,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }],
+      think: false,
+    }),
+  });
+
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(`Ollama API error ${response.status}: ${response.text}`);
+  }
+
+  return response.json?.choices?.[0]?.message?.content ?? '';
+}
+
+async function callAI(settings, prompt, maxTokens = 400) {
+  if (settings?.aiProvider === 'ollama') {
+    return callOllama(settings, prompt, maxTokens);
+  }
+  return callClaude(settings?.anthropicApiKey, prompt, maxTokens);
+}
+
+function stripThinking(text) {
+  return String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+}
+
 function extractJsonObject(text) {
-  const raw = String(text || '').replace(/^```[a-z]*\n?/i, '').replace(/```$/i, '').trim();
+  const raw = stripThinking(text).replace(/^```[a-z]*\n?/i, '').replace(/```$/i, '').trim();
   const start = raw.indexOf('{');
   const end = raw.lastIndexOf('}');
   if (start === -1 || end === -1 || end < start) throw new Error('No JSON object in AI response');
   return JSON.parse(raw.slice(start, end + 1));
 }
 
-/**
- * Parse the first JSON array out of a Claude response string.
- *
- * @param {string} text
- * @returns {Array}
- */
 function extractJsonArray(text) {
-  const raw = String(text || '').replace(/^```[a-z]*\n?/i, '').replace(/```$/i, '').trim();
+  const raw = stripThinking(text).replace(/^```[a-z]*\n?/i, '').replace(/```$/i, '').trim();
   const start = raw.indexOf('[');
   const end = raw.lastIndexOf(']');
   if (start === -1 || end === -1 || end < start) throw new Error('No JSON array in AI response');
   return JSON.parse(raw.slice(start, end + 1));
 }
 
-module.exports = { callClaude, extractJsonObject, extractJsonArray, ANTHROPIC_MODEL };
+module.exports = { callClaude, callAI, extractJsonObject, extractJsonArray, ANTHROPIC_MODEL, DEFAULT_OLLAMA_MODEL, DEFAULT_OLLAMA_BASE_URL };

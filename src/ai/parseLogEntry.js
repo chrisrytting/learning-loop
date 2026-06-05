@@ -9,12 +9,12 @@
  * No side effects, no vault writes, no UI.
  */
 
-const { callClaude, extractJsonObject } = require('./client');
+const { callAI, extractJsonObject } = require('./client');
 
 /**
  * @param {string} input           - Raw text from the editor (selection or current line)
  * @param {Array<{file: string, solutions: string[]}>} problemFiles
- * @param {string} apiKey
+ * @param {object} settings
  * @returns {Promise<{
  *   problem: string,
  *   solutions: string[],
@@ -22,10 +22,10 @@ const { callClaude, extractJsonObject } = require('./client');
  *   confidence: number,
  * }>}
  */
-async function parseLogEntry(input, problemFiles, apiKey) {
+async function parseLogEntry(input, problemFiles, settings) {
   const instanceDetail = stripListMarker(input);
 
-  if (!apiKey) {
+  if (settings?.aiProvider === 'anthropic' && !settings?.anthropicApiKey) {
     return { problem: '', solutions: [], instanceDetail, confidence: 0 };
   }
 
@@ -47,7 +47,7 @@ async function parseLogEntry(input, problemFiles, apiKey) {
   ].join('\n');
 
   try {
-    const text = await callClaude(apiKey, prompt, 400);
+    const text = await callAI(settings, prompt, 400);
     const parsed = extractJsonObject(text);
     return {
       problem: typeof parsed.problem === 'string' ? titleCase(parsed.problem) : '',

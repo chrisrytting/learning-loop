@@ -7,12 +7,12 @@
  * an alignment score and short rationale. No UI or vault side effects.
  */
 
-const { callClaude, extractJsonObject } = require('./client');
+const { callAI, extractJsonObject } = require('./client');
 
 /**
  * @param {string} actionText
  * @param {Array<{ name: string, detail: string }>} values
- * @param {string} apiKey
+ * @param {object} settings
  * @returns {Promise<{
  *   status: 'ok' | 'no-api-key' | 'empty-input' | 'empty-values' | 'error',
  *   alignmentScore?: number,
@@ -20,14 +20,14 @@ const { callClaude, extractJsonObject } = require('./client');
  *   message?: string,
  * }>}
  */
-async function compareToValues(actionText, values, apiKey) {
+async function compareToValues(actionText, values, settings) {
   if (!String(actionText || '').trim()) {
     return { status: 'empty-input' };
   }
   if (!values.length) {
     return { status: 'empty-values' };
   }
-  if (!apiKey) {
+  if (settings?.aiProvider === 'anthropic' && !settings?.anthropicApiKey) {
     return { status: 'no-api-key' };
   }
 
@@ -53,7 +53,7 @@ async function compareToValues(actionText, values, apiKey) {
   ].join('\n');
 
   try {
-    const text = await callClaude(apiKey, prompt, 300);
+    const text = await callAI(settings, prompt, 300);
     const parsed = extractJsonObject(text);
     const alignmentScore = Math.round(Number(parsed.alignmentScore));
     const rationale = typeof parsed.rationale === 'string' ? parsed.rationale.trim() : '';

@@ -88,7 +88,7 @@ async function compareToValuesCommand(app, editor, settings, plugin, options = {
   const evaluation = await compareToValues(
     thought.text,
     loaded.values,
-    settings.anthropicApiKey,
+    settings,
   );
 
   loadingModal.close();

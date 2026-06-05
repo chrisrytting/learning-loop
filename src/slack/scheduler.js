@@ -49,7 +49,7 @@ async function appendToNote(app, text) {
  * @returns {Promise<string>} updated lastTs
  */
 async function runSlackCheck(app, settings, lastTs) {
-  const { slackBotToken, slackMessageLimit, anthropicApiKey, basePathFolder } = settings;
+  const { slackBotToken, slackMessageLimit, basePathFolder } = settings;
 
   if (!slackBotToken) return lastTs;
 
@@ -91,7 +91,7 @@ async function runSlackCheck(app, settings, lastTs) {
     let username = msg.user;
     try { username = await resolveUsername(slackBotToken, msg.user); } catch (_) {}
 
-    const evaluation = await compareToValues(msg.text, loaded.values, anthropicApiKey);
+    const evaluation = await compareToValues(msg.text, loaded.values, settings);
     const dateStr = formatDate(msg.ts);
 
     let entry;

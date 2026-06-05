@@ -16,7 +16,10 @@ const { OptionsModal } = require('./ui/OptionsModal');
 const { startSlackScheduler } = require('./slack/scheduler');
 
 const DEFAULT_SETTINGS = {
+  aiProvider: 'anthropic',
   anthropicApiKey: '',
+  ollamaBaseUrl: 'http://localhost:11434',
+  ollamaModel: 'qwen3:latest',
   basePathFolder: '',
   slackBotToken: '',
   slackMessageLimit: 50,

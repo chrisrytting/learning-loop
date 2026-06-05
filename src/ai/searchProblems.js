@@ -9,20 +9,20 @@
  * No side effects, no vault reads/writes, no UI.
  */
 
-const { callClaude, extractJsonArray } = require('./client');
+const { callAI, extractJsonArray } = require('./client');
 
 /**
  * @param {string} cueText                    - The user's thought/cue
  * @param {Array<{query: string, page: string}>} queryIndex - Built from Problems/ frontmatter
  * @param {string[]} excludeNames             - Pages already surfaced by other means
- * @param {string} apiKey
+ * @param {object} settings
  * @returns {Promise<{
  *   matches: string[],   - Page names from the index that are relevant
  *   warning: string|null - Human-readable warning if something went wrong
  * }>}
  */
-async function searchProblems(cueText, queryIndex, excludeNames, apiKey) {
-  if (!apiKey) {
+async function searchProblems(cueText, queryIndex, excludeNames, settings) {
+  if (settings?.aiProvider === 'anthropic' && !settings?.anthropicApiKey) {
     return { matches: [], warning: '⚠ No API key — add one in plugin settings to enable AI search.' };
   }
 
@@ -43,7 +43,7 @@ async function searchProblems(cueText, queryIndex, excludeNames, apiKey) {
   ].join('\n');
 
   try {
-    const text = await callClaude(apiKey, prompt, 256);
+    const text = await callAI(settings, prompt, 256);
     const parsed = extractJsonArray(text);
 
     const validNames = new Set(queryIndex.map(e => e.page));
