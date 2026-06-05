@@ -38,16 +38,18 @@ class LearningLoopSettingTab extends PluginSettingTab {
           this.display();
         }));
 
-    new Setting(containerEl)
-      .setName('Anthropic API key')
-      .setDesc('Used for problem identification and AI search. Get one at console.anthropic.com.')
-      .addText(text => text
-        .setPlaceholder('sk-ant-…')
-        .setValue(this.plugin.settings.anthropicApiKey)
-        .onChange(async (value) => {
-          this.plugin.settings.anthropicApiKey = value.trim();
-          await this.plugin.saveSettings();
-        }));
+    if ((this.plugin.settings.aiProvider || 'anthropic') === 'anthropic') {
+      new Setting(containerEl)
+        .setName('Anthropic API key')
+        .setDesc('Used for problem identification and AI search. Get one at console.anthropic.com.')
+        .addText(text => text
+          .setPlaceholder('sk-ant-…')
+          .setValue(this.plugin.settings.anthropicApiKey)
+          .onChange(async (value) => {
+            this.plugin.settings.anthropicApiKey = value.trim();
+            await this.plugin.saveSettings();
+          }));
+    }
 
     if (this.plugin.settings.aiProvider === 'ollama') {
       new Setting(containerEl)
@@ -72,6 +74,9 @@ class LearningLoopSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           }));
     }
+
+    // ── Base Directory ───────────────────────────────────────────────────────
+    containerEl.createEl('h2', { text: 'Base Directory' });
 
     const basePath = normalizeBasePath(this.plugin.settings.basePathFolder);
     const valuesPath = valuesFilePath(basePath);
