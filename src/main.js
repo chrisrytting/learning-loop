@@ -11,10 +11,17 @@ const { Plugin } = require('obsidian');
 const LearningLoopSettingTab = require('./settings');
 const { helpCommand } = require('./commands/help');
 const { logCommand } = require('./commands/log');
+const { compareToValuesCommand } = require('./commands/compareToValues');
 const { OptionsModal } = require('./ui/OptionsModal');
+const { startSlackScheduler } = require('./slack/scheduler');
 
 const DEFAULT_SETTINGS = {
   anthropicApiKey: '',
+  basePathFolder: '',
+  slackBotToken: '',
+  slackMessageLimit: 50,
+  slackCheckIntervalMinutes: 30,
+  slackLastTs: '',
 };
 
 class LearningLoopPlugin extends Plugin {
@@ -29,6 +36,8 @@ class LearningLoopPlugin extends Plugin {
   async onload() {
     await this.loadSettings();
     this.addSettingTab(new LearningLoopSettingTab(this.app, this));
+
+    this._startSlackScheduler();
 
     this.addRibbonIcon('repeat-2', 'Learning Loop: Options', () => {
       this.app.commands.executeCommandById('learning-loop:options');
@@ -55,9 +64,27 @@ class LearningLoopPlugin extends Plugin {
       name: 'Log Problem / Solution',
       editorCallback: (editor) => logCommand(this.app, editor, this.settings),
     });
+
+    this.addCommand({
+      id: 'compare-to-values',
+      name: 'Compare to Values',
+      editorCallback: (editor) => compareToValuesCommand(this.app, editor, this.settings, this),
+    });
   }
 
-  onunload() {}
+  _startSlackScheduler() {
+    this._stopSlackScheduler?.();
+    this._stopSlackScheduler = startSlackScheduler(
+      this.app,
+      this.settings,
+      () => this.saveSettings(),
+      this.settings.slackCheckIntervalMinutes,
+    );
+  }
+
+  onunload() {
+    this._stopSlackScheduler?.();
+  }
 }
 
 module.exports = LearningLoopPlugin;

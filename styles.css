@@ -1,0 +1,14 @@
+/* Allow mouse selection of evaluation copy inside modals */
+.ll-compare-modal,
+.ll-compare-modal .ll-thought,
+.ll-compare-modal .ll-rationale,
+.ll-compare-modal .ll-alignment-score,
+.ll-compare-modal p {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.ll-compare-modal button {
+  user-select: none;
+  -webkit-user-select: none;
+}
