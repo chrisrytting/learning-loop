@@ -13,6 +13,7 @@ const { helpCommand } = require('./commands/help');
 const { logCommand } = require('./commands/log');
 const { compareToValuesCommand } = require('./commands/compareToValues');
 const { parseToJsonCommand } = require('./commands/parseToJson');
+const { switchWorktreeCommand } = require('./commands/switchWorktree');
 const { OptionsModal } = require('./ui/OptionsModal');
 const { startSlackScheduler } = require('./slack/scheduler');
 
@@ -79,6 +80,12 @@ class LearningLoopPlugin extends Plugin {
       id: 'parse-to-json',
       name: 'Parse to JSON',
       callback: () => parseToJsonCommand(this.app),
+    });
+
+    this.addCommand({
+      id: 'switch-worktree',
+      name: 'Switch Worktree',
+      callback: () => switchWorktreeCommand(this.app),
     });
   }
 
