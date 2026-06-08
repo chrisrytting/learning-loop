@@ -12,6 +12,7 @@ const LearningLoopSettingTab = require('./settings');
 const { helpCommand } = require('./commands/help');
 const { logCommand } = require('./commands/log');
 const { compareToValuesCommand } = require('./commands/compareToValues');
+const { parseToJsonCommand } = require('./commands/parseToJson');
 const { OptionsModal } = require('./ui/OptionsModal');
 const { startSlackScheduler } = require('./slack/scheduler');
 
@@ -72,6 +73,12 @@ class LearningLoopPlugin extends Plugin {
       id: 'compare-to-values',
       name: 'Compare to Values',
       editorCallback: (editor) => compareToValuesCommand(this.app, editor, this.settings, this),
+    });
+
+    this.addCommand({
+      id: 'parse-to-json',
+      name: 'Parse to JSON',
+      callback: () => parseToJsonCommand(this.app),
     });
   }
 

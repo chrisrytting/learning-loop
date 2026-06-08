@@ -12,3 +12,15 @@
   user-select: none;
   -webkit-user-select: none;
 }
+
+.ll-parse-json-modal .ll-parse-json-pre {
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 12px;
+  white-space: pre;
+  user-select: text;
+  -webkit-user-select: text;
+}
