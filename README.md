@@ -65,7 +65,7 @@ Because there is a reference to the [[Learning Loop Trace]] page, this additiona
 #If you've never been in a terminal, you type each line below and press enter to run it.
 
 cd <path-to-vault>/.obsidian/plugins 
-git clone https://github.com/chrisrytting/learning-loop-obsidian.git learning-loop
+git clone https://github.com/chrisrytting/learning-loop.git
 ```
 **3 — Finding your settings:** In Obsidian, click the gear icon in the bottom left, or in the Obsidian menu at the top left in the system menu bar, and then click Settings.
 
