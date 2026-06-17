@@ -22,7 +22,7 @@ const { callAI, extractJsonObject } = require('./client');
  *   confidence: number,
  * }>}
  */
-async function parseLogEntry(input, problemFiles, settings) {
+async function parseLogEntry(input, problemFiles, settings, collector = null) {
   const instanceDetail = stripListMarker(input);
 
   if (settings?.aiProvider === 'anthropic' && !settings?.anthropicApiKey) {
@@ -47,7 +47,7 @@ async function parseLogEntry(input, problemFiles, settings) {
   ].join('\n');
 
   try {
-    const text = await callAI(settings, prompt, 400);
+    const text = await callAI(settings, prompt, 400, collector);
     const parsed = extractJsonObject(text);
     return {
       problem: typeof parsed.problem === 'string' ? titleCase(parsed.problem) : '',

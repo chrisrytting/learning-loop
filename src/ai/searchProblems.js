@@ -21,7 +21,7 @@ const { callAI, extractJsonArray } = require('./client');
  *   warning: string|null - Human-readable warning if something went wrong
  * }>}
  */
-async function searchProblems(cueText, queryIndex, excludeNames, settings) {
+async function searchProblems(cueText, queryIndex, excludeNames, settings, collector = null) {
   if (settings?.aiProvider === 'anthropic' && !settings?.anthropicApiKey) {
     return { matches: [], warning: '⚠ No API key — add one in plugin settings to enable AI search.' };
   }
@@ -43,7 +43,7 @@ async function searchProblems(cueText, queryIndex, excludeNames, settings) {
   ].join('\n');
 
   try {
-    const text = await callAI(settings, prompt, 256);
+    const text = await callAI(settings, prompt, 256, collector);
     const parsed = extractJsonArray(text);
 
     const validNames = new Set(queryIndex.map(e => e.page));

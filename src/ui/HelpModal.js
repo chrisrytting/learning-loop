@@ -24,7 +24,10 @@
 const { Modal, Setting, Notice } = require('obsidian');
 const { identifyProblem } = require('../ai/identifyProblem');
 const { searchProblems } = require('../ai/searchProblems');
+const { AiUsageCollector } = require('../ai/usageCollector');
 const { listProblemNames, buildQueryIndex, getRetrievePages, readProblemSummary, ensureProblemPage, writeQueriesToPages } = require('../vault/problems');
+const { buildExecutionWikiLink } = require('../vault/executionLink');
+const { writeCommandUsageLog } = require('../vault/logs');
 const { writeTrace } = require('../vault/trace');
 
 class HelpModal extends Modal {
@@ -39,6 +42,8 @@ class HelpModal extends Modal {
     this.editor = editor;
     this.settings = settings;
     this.thought = thought;
+    this.executedAt = new Date();
+    this.usageCollector = new AiUsageCollector();
 
     // State built up through the steps
     this.problemName = null;       // resolved after Step 1
@@ -72,11 +77,10 @@ class HelpModal extends Modal {
   }
 
   async runIdentification(statusEl, buttonRow) {
-    const apiKey = this.settings.anthropicApiKey;
     const existingNames = listProblemNames(this.app);
 
     try {
-      const result = await identifyProblem(this.thought.text, existingNames, apiKey);
+      const result = await identifyProblem(this.thought.text, existingNames, this.settings, this.usageCollector);
       this.renderStep1Result(result, statusEl, buttonRow);
     } catch (error) {
       statusEl.setText(`Error: ${error.message}`);
@@ -180,7 +184,6 @@ class HelpModal extends Modal {
 
     const statusEl = contentEl.createEl('p', { text: 'Searching…', cls: 'll-status' });
 
-    const apiKey = this.settings.anthropicApiKey;
     const mentionedNames = this.problemName ? [this.problemName] : [];
     const retrievePages = getRetrievePages(this.app, mentionedNames);
     const queryIndex = buildQueryIndex(this.app);
@@ -190,7 +193,8 @@ class HelpModal extends Modal {
       this.thought.text,
       queryIndex,
       excludeNames,
-      apiKey,
+      this.settings,
+      this.usageCollector,
     );
 
     // Always include the identified problem page first, then related pages, deduplicated
@@ -307,6 +311,18 @@ class HelpModal extends Modal {
     if (this.thought.text && this.selectedPages.length > 0) {
       writeQueriesToPages(this.app, this.thought.text, this.selectedPages)
         .catch(err => console.warn('Learning Loop: failed to write queries', err));
+    }
+
+    // Write AI usage log
+    if (this.usageCollector.hasUsage()) {
+      const file = this.app.workspace.getActiveFile();
+      const executionLink = buildExecutionWikiLink(this.app, file, this.thought.fromLine);
+      writeCommandUsageLog(this.app, {
+        command: 'help',
+        executionLink,
+        usages: this.usageCollector.usages,
+        timestamp: this.executedAt,
+      }).catch(err => console.warn('Learning Loop: failed to write usage log', err));
     }
   }
 }

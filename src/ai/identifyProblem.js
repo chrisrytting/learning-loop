@@ -23,7 +23,7 @@ const { callAI, extractJsonObject } = require('./client');
  *   message?: string,
  * }>}
  */
-async function identifyProblem(utterance, existingNames, settings) {
+async function identifyProblem(utterance, existingNames, settings, collector = null) {
   if (!utterance.trim()) return { status: 'empty' };
   if (settings?.aiProvider === 'anthropic' && !settings?.anthropicApiKey) return { status: 'no-api-key' };
 
@@ -43,7 +43,7 @@ async function identifyProblem(utterance, existingNames, settings) {
   ].join('\n');
 
   try {
-    const text = await callAI(settings, prompt, 256);
+    const text = await callAI(settings, prompt, 256, collector);
     const parsed = extractJsonObject(text);
 
     const confidence = Number(parsed.confidence ?? 0);
