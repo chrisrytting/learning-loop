@@ -75,6 +75,15 @@ class WorktreeSwitchModal extends SuggestModal {
         fs.unlinkSync(this.symlinkPath);
       }
       fs.symlinkSync(wt.path, this.symlinkPath);
+
+      // Copy data.json (plugin settings, incl. API key) from main repo to target
+      // worktree if the target doesn't already have one. Never tracked by git.
+      const srcSettings = path.join(this.repoDir, 'data.json');
+      const destSettings = path.join(wt.path, 'data.json');
+      if (fs.existsSync(srcSettings) && !fs.existsSync(destSettings)) {
+        fs.copyFileSync(srcSettings, destSettings);
+      }
+
       const label = wt.branch || `detached ${wt.head}`;
       new Notice(`Learning Loop: switched to "${label}". Reload the plugin to apply.`);
     } catch (e) {

@@ -5,7 +5,8 @@
  *
  * Directory-based AI usage log.
  *
- * Each command run writes its own note to Logs/ with YAML frontmatter.
+ * Each command run writes its own note to Logs/ with YAML frontmatter (cost/usage)
+ * and an optional trajectory section in the body.
  * Logs/Overview.base provides an Obsidian Bases table view over the directory.
  */
 
@@ -50,47 +51,55 @@ function formatFilenameTimestamp(date = new Date()) {
 }
 
 /**
+ * Write a per-run log note with cost frontmatter and an optional trajectory body.
+ * Always writes a file when called (trajectory entries are always present);
+ * cost fields are omitted if there were no AI calls.
+ *
  * @param {import('obsidian').App} app
  * @param {{
  *   command: 'help' | 'log',
  *   executionLink: string,
  *   usages: Array<{ inputTokens: number, outputTokens: number, model: string }>,
+ *   trajectoryEntries?: string[],
  *   timestamp?: Date,
  * }} entry
  */
 async function writeCommandUsageLog(app, entry) {
-  if (!entry.usages?.length) return;
+  const hasUsage = entry.usages?.length > 0;
+  const hasTrajectory = entry.trajectoryEntries?.length > 0;
+  if (!hasUsage && !hasTrajectory) return;
 
   const adapter = app.vault.adapter;
   const ts = entry.timestamp ?? new Date();
-  const rows = aggregateByModel(entry.usages);
-  const totalCost = rows.reduce((sum, r) => sum + r.costUsd, 0);
-  const usageDetail = formatModelUsageSegment(rows);
 
-  // Ensure Logs/ directory exists
-  if (!(await adapter.exists(LOGS_DIR))) {
-    await adapter.mkdir(LOGS_DIR);
-  }
+  if (!(await adapter.exists(LOGS_DIR))) await adapter.mkdir(LOGS_DIR);
+  if (!(await adapter.exists(LOGS_BASE_PATH))) await adapter.write(LOGS_BASE_PATH, LOGS_BASE_CONTENT);
 
-  // Ensure Overview.base exists inside Logs/
-  if (!(await adapter.exists(LOGS_BASE_PATH))) {
-    await adapter.write(LOGS_BASE_PATH, LOGS_BASE_CONTENT);
-  }
-
-  // Write the per-run log file
-  const filename = `${LOGS_DIR}/${formatFilenameTimestamp(ts)}-${entry.command}.md`;
-  const frontmatter = [
+  const fmLines = [
     '---',
     `timestamp: "${formatTimestamp(ts)}"`,
     `command: ${entry.command}`,
-    `cost_usd: ${totalCost}`,
-    `execution_link: "[[${entry.executionLink.replace(/^\[\[/, '').replace(/\]\]$/, '')}]]"`,
-    `usage_detail: "${usageDetail}"`,
-    '---',
-    '',
-  ].join('\n');
+  ];
 
-  await adapter.write(filename, frontmatter);
+  if (hasUsage) {
+    const rows = aggregateByModel(entry.usages);
+    const totalCost = rows.reduce((sum, r) => sum + r.costUsd, 0);
+    fmLines.push(`cost_usd: ${totalCost}`);
+    fmLines.push(`usage_detail: "${formatModelUsageSegment(rows)}"`);
+  }
+
+  if (entry.executionLink) {
+    fmLines.push(`execution_link: "[[${entry.executionLink.replace(/^\[\[/, '').replace(/\]\]$/, '')}]]"`);
+  }
+
+  fmLines.push('---', '');
+
+  const body = hasTrajectory
+    ? entry.trajectoryEntries.map(e => `- ${e}`).join('\n') + '\n'
+    : '';
+
+  const filename = `${LOGS_DIR}/${formatFilenameTimestamp(ts)}-${entry.command}.md`;
+  await adapter.write(filename, fmLines.join('\n') + body);
 }
 
 module.exports = {

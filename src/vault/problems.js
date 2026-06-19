@@ -165,6 +165,26 @@ async function writeQueriesToPages(app, query, pageNames) {
 }
 
 /**
+ * Remove a query from problem pages' Queries frontmatter.
+ * Used by Help when the user unchecks a page in Step 2.
+ *
+ * @param {import('obsidian').App} app
+ * @param {string} query
+ * @param {string[]} pageNames
+ */
+async function removeQueriesFromPages(app, query, pageNames) {
+  const files = app.vault.getFiles();
+  for (const name of pageNames) {
+    const file = files.find(f => f.extension === 'md' && f.basename === name);
+    if (!file) continue;
+    await app.fileManager.processFrontMatter(file, fm => {
+      if (!Array.isArray(fm['Queries'])) return;
+      fm['Queries'] = fm['Queries'].filter(q => q !== query);
+    });
+  }
+}
+
+/**
  * Ensure a problem page exists; create it with boilerplate if not.
  *
  * @param {import('obsidian').App} app
@@ -333,5 +353,6 @@ module.exports = {
   getRetrievePages,
   writeProblemLog,
   writeQueriesToPages,
+  removeQueriesFromPages,
   ensureProblemPage,
 };

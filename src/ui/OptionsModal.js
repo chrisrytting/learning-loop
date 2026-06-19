@@ -17,10 +17,11 @@ class OptionsModal extends Modal {
    * @param {import('obsidian').Editor} editor
    * @param {{ anthropicApiKey: string }} settings
    */
-  constructor(app, editor, settings) {
+  constructor(app, editor, settings, plugin = null) {
     super(app);
     this.editor = editor;
     this.settings = settings;
+    this.plugin = plugin;
   }
 
   onOpen() {
@@ -41,7 +42,7 @@ class OptionsModal extends Modal {
     const helpBtn = helpCard.createEl('button', { text: 'Get Help', cls: 'mod-cta' });
     helpBtn.addEventListener('click', () => {
       this.close();
-      helpCommand(this.app, this.editor, this.settings);
+      helpCommand(this.app, this.editor, this.settings, this.plugin);
     });
 
     // ── Log ───────────────────────────────────────────────────────────────

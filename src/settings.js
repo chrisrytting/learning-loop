@@ -167,6 +167,32 @@ class LearningLoopSettingTab extends PluginSettingTab {
             new Notice('Slack error: ' + e.message);
           }
         }));
+
+    // ── Dev ──────────────────────────────────────────────────────────────────
+    containerEl.createEl('h2', { text: 'Dev' });
+
+    new Setting(containerEl)
+      .setName('Cache AI responses')
+      .setDesc('Reuse AI results when the same utterance and problem list are seen again. Saves API cost during development.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.enableAiCache ?? false)
+        .onChange(async (value) => {
+          this.plugin.settings.enableAiCache = value;
+          await this.plugin.saveSettings();
+        }));
+
+    const cacheSize = Object.keys(this.plugin.settings.aiCache ?? {}).length;
+    new Setting(containerEl)
+      .setName('Clear AI cache')
+      .setDesc(`${cacheSize} entr${cacheSize === 1 ? 'y' : 'ies'} currently cached.`)
+      .addButton(btn => btn
+        .setButtonText('Clear')
+        .onClick(async () => {
+          this.plugin.settings.aiCache = {};
+          await this.plugin.saveSettings();
+          new Notice('Learning Loop: AI cache cleared.');
+          this.display();
+        }));
   }
 }
 

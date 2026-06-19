@@ -14,6 +14,7 @@ const { logCommand } = require('./commands/log');
 const { compareToValuesCommand } = require('./commands/compareToValues');
 const { parseToJsonCommand } = require('./commands/parseToJson');
 const { switchWorktreeCommand } = require('./commands/switchWorktree');
+const { registerSmartOpenRight } = require('./commands/smartOpenRight');
 const { OptionsModal } = require('./ui/OptionsModal');
 const { startSlackScheduler } = require('./slack/scheduler');
 
@@ -27,6 +28,8 @@ const DEFAULT_SETTINGS = {
   slackMessageLimit: 50,
   slackCheckIntervalMinutes: 30,
   slackLastTs: '',
+  enableAiCache: false,
+  aiCache: {},
 };
 
 class LearningLoopPlugin extends Plugin {
@@ -43,6 +46,7 @@ class LearningLoopPlugin extends Plugin {
     this.addSettingTab(new LearningLoopSettingTab(this.app, this));
 
     this._startSlackScheduler();
+    registerSmartOpenRight(this);
 
     this.addRibbonIcon('repeat-2', 'Learning Loop: Options', () => {
       this.app.commands.executeCommandById('learning-loop:options');
@@ -54,14 +58,14 @@ class LearningLoopPlugin extends Plugin {
       name: 'Options',
       icon: 'repeat-2',
       hotkeys: [{ modifiers: ['Mod'], key: 'l' }],
-      editorCallback: (editor) => new OptionsModal(this.app, editor, this.settings).open(),
+      editorCallback: (editor) => new OptionsModal(this.app, editor, this.settings, this).open(),
     });
 
     // Direct commands still available for power users who know what they want
     this.addCommand({
       id: 'help',
       name: 'Help',
-      editorCallback: (editor) => helpCommand(this.app, editor, this.settings),
+      editorCallback: (editor) => helpCommand(this.app, editor, this.settings, this),
     });
 
     this.addCommand({

@@ -1,3 +1,73 @@
+/* Browser-style back/forward nav bar */
+.ll-help-modal .ll-nav-bar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.ll-help-modal .ll-nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.ll-help-modal .ll-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.ll-help-modal .ll-nav-btn:not(:disabled):hover {
+  background: var(--background-modifier-hover);
+}
+
+/* Add related problem row */
+.ll-help-modal .ll-add-problem-row {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0 4px;
+}
+
+.ll-help-modal .ll-add-problem-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: var(--font-ui-small);
+}
+
+/* "You said" label */
+.ll-help-modal .ll-thought-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 0 0 4px;
+}
+
+/* Utterance highlight in Help modal */
+.ll-help-modal .ll-thought {
+  border-left: 3px solid var(--color-accent);
+  background: var(--background-secondary);
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+  margin: 8px 0 16px;
+  color: var(--text-normal);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 /* Allow mouse selection of evaluation copy inside modals */
 .ll-compare-modal,
 .ll-compare-modal .ll-thought,
