@@ -1,74 +1,204 @@
-/* Browser-style back/forward nav bar */
-.ll-help-modal .ll-nav-bar {
+/* ─── Help modal ──────────────────────────────────────────────────────────── */
+.ll-help-modal {
   display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
+  flex-direction: column;
+  max-height: 72vh;
 }
 
-.ll-help-modal .ll-nav-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1px solid var(--background-modifier-border);
+/* Let the user select/copy the modal's text… */
+.ll-help-modal,
+.ll-help-modal p,
+.ll-help-modal h2,
+.ll-help-modal span,
+.ll-help-modal blockquote,
+.ll-help-modal strong,
+.ll-help-modal li {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* …except the buttons, which stay non-selectable */
+.ll-help-modal button {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ll-help-modal .ll-scroll-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.ll-help-modal .ll-section-heading {
+  margin: 0 0 6px;
+  font-size: var(--h3-size);
+}
+
+/* Utterance highlight */
+.ll-help-modal .ll-thought {
+  border-left: 3px solid var(--color-accent);
   background: var(--background-secondary);
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  margin: 0 0 18px;
   color: var(--text-normal);
-  font-size: 14px;
-  cursor: pointer;
+}
+
+.ll-help-modal .ll-hint {
+  margin: 0 0 14px;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.ll-help-modal .ll-status {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+}
+
+.ll-help-modal .ll-warning {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: var(--background-secondary);
+  color: var(--text-warning, var(--text-muted));
+  font-size: var(--font-ui-small);
+}
+
+.ll-help-modal .ll-muted {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+}
+
+/* ─── Page cards ──────────────────────────────────────────────────────────── */
+.ll-help-modal .ll-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.ll-help-modal .ll-page-card {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--background-secondary);
+}
+
+.ll-help-modal .ll-page-card-header {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+}
+
+/* Expand/collapse title button fills the row; ＋ sits at the right */
+.ll-help-modal .ll-page-title {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+  box-shadow: none;
+}
+
+.ll-help-modal .ll-page-title:hover { color: var(--text-accent); }
+
+.ll-help-modal .ll-caret {
+  flex: 0 0 auto;
+  width: 1em;
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+/* The ＋ / ✓ add-reference buttons */
+.ll-help-modal .ll-add-ref-btn {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
   padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-muted);
+  cursor: pointer;
   line-height: 1;
+  font-size: 15px;
 }
 
-.ll-help-modal .ll-nav-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.ll-help-modal .ll-nav-btn:not(:disabled):hover {
+.ll-help-modal .ll-add-ref-btn:hover {
   background: var(--background-modifier-hover);
+  color: var(--text-normal);
 }
 
-/* Add related problem row */
+.ll-help-modal .ll-add-ref-btn.is-added {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--text-on-accent);
+}
+
+/* Solutions (revealed when a card is expanded) */
+.ll-help-modal .ll-solutions {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.ll-help-modal .ll-solution {
+  margin: 8px 0;
+}
+
+.ll-help-modal .ll-solution-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ll-help-modal .ll-solution-text {
+  flex: 1 1 auto;
+  color: var(--text-normal);
+}
+
+.ll-help-modal .ll-instances {
+  margin: 4px 0 0;
+  padding-left: 22px;
+}
+
+.ll-help-modal .ll-instance {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.4;
+}
+
+/* Find-a-page input row */
 .ll-help-modal .ll-add-problem-row {
   display: flex;
-  gap: 6px;
-  margin: 12px 0 4px;
+  gap: 8px;
+  margin: 0 0 16px;
 }
 
 .ll-help-modal .ll-add-problem-input {
   flex: 1;
-  padding: 4px 8px;
+  padding: 6px 10px;
   border: 1px solid var(--background-modifier-border);
-  border-radius: 4px;
+  border-radius: 6px;
   background: var(--background-primary);
   color: var(--text-normal);
   font-size: var(--font-ui-small);
 }
 
-/* "You said" label */
-.ll-help-modal .ll-thought-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  margin: 0 0 4px;
+.ll-help-modal .ll-button-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
 }
 
-/* Utterance highlight in Help modal */
-.ll-help-modal .ll-thought {
-  border-left: 3px solid var(--color-accent);
-  background: var(--background-secondary);
-  padding: 8px 12px;
-  border-radius: 0 6px 6px 0;
-  margin: 8px 0 16px;
-  color: var(--text-normal);
-  user-select: text;
-  -webkit-user-select: text;
-}
-
-/* Allow mouse selection of evaluation copy inside modals */
+/* ─── Compare modal (unchanged) ───────────────────────────────────────────── */
 .ll-compare-modal,
 .ll-compare-modal .ll-thought,
 .ll-compare-modal .ll-rationale,

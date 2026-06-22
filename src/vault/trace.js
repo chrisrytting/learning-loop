@@ -53,6 +53,10 @@ function readThought(editor) {
 /**
  * Write a compact trace record into the note, replacing the original thought line(s).
  *
+ * Each reference is a ready-to-write link string (e.g. "[[Page]]" or
+ * "[[Page#^id|solution]]"). Page references are grouped under a "Related
+ * Problems" heading, solution references under "Related Solutions".
+ *
  * @param {import('obsidian').Editor} editor
  * @param {{
  *   fromLine: number,
@@ -60,20 +64,24 @@ function readThought(editor) {
  *   ch0: number,
  *   ch1: number,
  *   thought: string,
- *   problemName: string | null,
- *   retrievedPages: string[],
+ *   relatedProblems: string[],
+ *   relatedSolutions: string[],
  * }} traceData
  */
 function writeTrace(editor, traceData) {
-  const { fromLine, toLine, ch1, thought, problemName, retrievedPages } = traceData;
+  const { fromLine, toLine, ch1, thought, relatedProblems = [], relatedSolutions = [] } = traceData;
 
   const lines = [];
   lines.push(`- [[Learning Loop Trace]]`);
   if (thought) lines.push(`\t- ${thought}`);
-  if (problemName) lines.push(`\t- [[${problemName}]]`);
-  if (retrievedPages.length > 0) {
-    lines.push('\t- ' + retrievedPages.map(p => `[[${p}]]`).join(', '));
-  }
+
+  const section = (heading, refs) => {
+    if (refs.length === 0) return;
+    lines.push(`\t- ${heading}`);
+    for (const ref of refs) lines.push(`\t\t- ${ref}`);
+  };
+  section('Related Problems', relatedProblems);
+  section('Related Solutions', relatedSolutions);
 
   const insertion = lines.join('\n');
   editor.replaceRange(insertion, { line: fromLine, ch: 0 }, { line: toLine, ch: ch1 });

@@ -3,29 +3,25 @@
 /**
  * ui/HelpModal.js
  *
- * The primary UI for the Help command. Replaces the old inline trace state machine.
+ * The Help command UI. A single screen that searches the user's existing
+ * problem pages for the current thought and lists the matches. Each page (and
+ * each solution within it) has a ＋ button that inserts a reference into the
+ * note: ＋ on a page inserts a link to the page; ＋ on a solution inserts a
+ * link to that solution's block.
  *
- * Flow:
- *   Step 1 — Problem identification
- *     - Shows the user's thought (pre-filled from editor)
- *     - Calls identifyProblem() and shows the result
- *     - Buttons: [Accept] [Edit] [Skip]
- *
- *   Step 2 — Page retrieval (shown after Step 1 resolves)
- *     - Shows pages from "Retrieve Pages" frontmatter + AI search results
- *     - User can select which to keep, or dismiss
- *     - Button: [Done]
- *
- *   On close:
- *     - Calls writeTrace() to append a compact record to the note
- *     - Calls writeQueriesToPages() to index the cue text on selected pages
+ * On close, the collected references are written into the note as a compact
+ * trace, replacing the original thought line(s).
  */
 
-const { Modal, Setting, Notice } = require('obsidian');
-const { identifyProblem } = require('../ai/identifyProblem');
+const { Modal, Notice } = require('obsidian');
 const { searchProblems } = require('../ai/searchProblems');
 const { AiUsageCollector } = require('../ai/usageCollector');
-const { listProblemNames, buildQueryIndex, getRetrievePages, readProblemSummary, ensureProblemPage, writeQueriesToPages, removeQueriesFromPages } = require('../vault/problems');
+const {
+  listProblemNames,
+  readProblemPage,
+  buildContentIndex,
+  ensureSolutionBlockId,
+} = require('../vault/problems');
 const { buildExecutionWikiLink } = require('../vault/executionLink');
 const { writeCommandUsageLog } = require('../vault/logs');
 const { writeTrace } = require('../vault/trace');
@@ -43,486 +39,234 @@ class HelpModal extends Modal {
     this.settings = settings;
     this.thought = thought;
     this.plugin = plugin;
-    this.executedAt = new Date();
+
     this.usageCollector = new AiUsageCollector();
+    this.executedAt = new Date();
 
-    // Navigation state
-    this.step = 1;
-    this.step2Visited = false;
+    // References the user has chosen to insert, keyed by a stable id so the ＋
+    // buttons can toggle. Value is the ready-to-write link string.
+    this.references = new Map();
 
-    // State built up through the steps
-    this.problemName = null;       // resolved after Step 1
-    this.selectedPages = [];       // resolved after Step 2
-
-    // Cached AI results — avoid re-calling on back/forward navigation
-    this._step1Result = null;      // result of identifyProblem
-    this._step2Data = null;        // { summaries, allPageNames, warning, forProblem }
-
-
-    // Trajectory: chronological log of what happened during this run
     this.trajectory = [];
-    if (thought.text) {
-      this.trajectory.push(`User uttered: "${thought.text}"`);
-    } else {
-      this.trajectory.push('User uttered: (empty — no text on cursor line)');
-    }
-  }
+    if (thought.text) this.trajectory.push(`User uttered: "${thought.text}"`);
 
-  _cacheGet(key) {
-    if (!this.plugin?.settings?.enableAiCache) return undefined;
-    return this.plugin.settings.aiCache?.[key];
-  }
-
-  _cacheSet(key, value) {
-    if (!this.plugin?.settings?.enableAiCache) return;
-    if (!this.plugin.settings.aiCache) this.plugin.settings.aiCache = {};
-    this.plugin.settings.aiCache[key] = value;
-    this.plugin.saveSettings().catch(() => {});
+    // Pages already pulled into the list (by search or manual add).
+    this._shownPages = new Set();
   }
 
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('ll-help-modal');
-    this.renderStep1();
+    this.render();
   }
 
-  // ─── Step 1: Problem identification ───────────────────────────────────────
-
-  renderNavBar() {
-    const nav = this.contentEl.createDiv({ cls: 'll-nav-bar' });
-
-    const backBtn = nav.createEl('button', { text: '←', cls: 'll-nav-btn' });
-    backBtn.disabled = this.step <= 1;
-    backBtn.addEventListener('click', () => {
-      this.trajectory.push('User navigated back to Step 1');
-      this.step = 1;
-      this.renderStep1();
-    });
-
-    const fwdBtn = nav.createEl('button', { text: '→', cls: 'll-nav-btn' });
-    fwdBtn.disabled = this.step >= 2 || !this.step2Visited;
-    fwdBtn.addEventListener('click', () => {
-      this.trajectory.push('User navigated forward to Step 2');
-      this.step = 2;
-      this.renderStep2();
-    });
-  }
-
-  renderStep1() {
+  render() {
     const { contentEl } = this;
     contentEl.empty();
-    this.step = 1;
-    this.renderNavBar();
 
+    const body = contentEl.createDiv({ cls: 'll-scroll-body' });
     if (this.thought.text) {
-      contentEl.createEl('p', { text: 'You said', cls: 'll-thought-label' });
-      contentEl.createEl('blockquote', { text: this.thought.text, cls: 'll-thought' });
+      body.createEl('blockquote', { text: this.thought.text, cls: 'll-thought' });
     }
-    contentEl.createEl('h2', { text: 'Related problems' });
+    body.createEl('h2', { text: 'What has helped before', cls: 'll-section-heading' });
+    body.createEl('p', {
+      text: 'Browse your existing problem pages. Click ＋ on a page or a solution to add a reference to your note.',
+      cls: 'll-hint',
+    });
 
-    const statusEl = contentEl.createEl('p', { text: 'Identifying problem…', cls: 'll-status' });
-    const buttonRow = contentEl.createDiv({ cls: 'll-button-row' });
+    this.cardsEl = body.createDiv({ cls: 'll-cards-container' });
+    const statusEl = this.cardsEl.createEl('p', { text: 'Searching…', cls: 'll-status' });
 
-    // Run identification in background; render buttons when done
-    this.runIdentification(statusEl, buttonRow);
+    this.renderAddPageRow(body);
+    this.renderFooter(body);
+
+    this.runSearch(statusEl);
   }
 
-  async runIdentification(statusEl, buttonRow) {
-    if (this._step1Result) {
-      this.renderStep1Result(this._step1Result, statusEl, buttonRow);
+  async runSearch(statusEl) {
+    const allNames = listProblemNames(this.app);
+    if (allNames.length === 0) {
+      statusEl.setText('No problem pages yet. Log solutions as you find them and they’ll show up here.');
       return;
     }
 
-    const existingNames = listProblemNames(this.app);
-    const identifyCacheKey = `id:${this.thought.text}|${[...existingNames].sort().join(',')}`;
-    this.trajectory.push(`Called \`identifyProblem\` with ${existingNames.length} existing problems: ${existingNames.map(n => `[[${n}]]`).join(', ')}`);
-
+    let matches = [];
     try {
-      const cached = this._cacheGet(identifyCacheKey);
-      const result = cached
-        ? (this.trajectory.push('`identifyProblem` result served from cache'), cached)
-        : await identifyProblem(this.thought.text, existingNames, this.settings, this.usageCollector);
-
-      if (!cached) {
-        this.trajectory.push(
-          `\`identifyProblem\` returned: status=${result.status}`
-          + (result.problemName ? `, problemName="${result.problemName}"` : '')
-          + (result.isNew !== undefined ? `, isNew=${result.isNew}` : '')
-          + (result.confidence !== undefined ? `, confidence=${result.confidence}` : '')
-          + (result.message ? `, message="${result.message}"` : '')
-        );
-        this._cacheSet(identifyCacheKey, result);
-      }
-
-      this._step1Result = result;
-      this.renderStep1Result(result, statusEl, buttonRow);
+      const index = await buildContentIndex(this.app);
+      this.trajectory.push(`Called \`buildContentIndex\` → ${index.length} entries across ${allNames.length} pages`);
+      const result = await searchProblems(this.thought.text, index, [], this.settings, this.usageCollector);
+      matches = result.matches;
+      this.trajectory.push(
+        `\`searchProblems\` returned: ${matches.map(n => `[[${n}]]`).join(', ') || '(none)'}`
+        + (result.warning ? `, warning="${result.warning}"` : '')
+      );
+      if (result.warning) this.cardsEl.createEl('p', { text: result.warning, cls: 'll-warning' });
     } catch (error) {
-      this.trajectory.push(`\`identifyProblem\` threw: ${error.message}`);
-      statusEl.setText(`Error: ${error.message}`);
-    }
-  }
-
-  renderStep1Result(result, statusEl, buttonRow) {
-    buttonRow.empty();
-
-    if (result.status === 'no-api-key') {
-      this.trajectory.push('Step 1 displayed: no API key — showed prompt to add key');
-      statusEl.setText('Add an Anthropic API key in plugin settings to identify problems.');
-      this.addSkipButton(buttonRow);
+      this.trajectory.push(`\`searchProblems\` threw: ${error.message}`);
+      statusEl.setText(`Search failed: ${error.message}`);
       return;
     }
 
-    if (result.status === 'empty') {
-      this.trajectory.push('Step 1 displayed: no thought text found');
-      statusEl.setText('No thought text found — try selecting text or placing your cursor on a line.');
-      this.addCloseButton(buttonRow, 'Close');
-      return;
-    }
+    statusEl.remove();
 
-    if (result.status === 'unidentified' || result.status === 'error') {
-      this.trajectory.push(`Step 1 displayed: could not identify problem (${result.status}) — showed manual input`);
-      statusEl.setText(
-        result.status === 'error'
-          ? `Could not identify problem: ${result.message}`
-          : 'Could not identify a specific problem.'
-      );
-      this.addProblemInput(buttonRow, '');
-      this.addSkipButton(buttonRow);
-      return;
-    }
-
-    // status === 'matched'
-    this.trajectory.push(
-      `Step 1 displayed: ${result.isNew ? 'new' : 'existing'} problem [[${result.problemName}]] — showed Accept / Edit / Skip`
-    );
-    const label = result.isNew
-      ? `New problem: "${result.problemName}"`
-      : `Problem: "${result.problemName}"`;
-    statusEl.setText(label);
-
-    // Accept button
-    const acceptBtn = buttonRow.createEl('button', {
-      text: result.isNew ? 'Create & accept' : 'Accept',
-      cls: 'mod-cta',
-    });
-    acceptBtn.addEventListener('click', async () => {
-      if (this.problemName !== result.problemName) this._step2Data = null;
-      this.problemName = result.problemName;
-      this.trajectory.push(`User accepted problem: [[${result.problemName}]]`);
-      if (result.isNew) await ensureProblemPage(this.app, result.problemName);
-      this.renderStep2();
-    });
-
-    // Edit button — lets user type a different name
-    const editBtn = buttonRow.createEl('button', { text: 'Edit' });
-    editBtn.addEventListener('click', () => {
-      this.trajectory.push(`User clicked Edit on [[${result.problemName}]]`);
-      statusEl.empty();
-      this.addProblemInput(buttonRow, result.problemName);
-      editBtn.remove();
-      acceptBtn.remove();
-    });
-
-    this.addSkipButton(buttonRow);
-  }
-
-  addProblemInput(buttonRow, initialValue) {
-    const { contentEl } = this;
-    const inputRow = contentEl.createDiv({ cls: 'll-input-row' });
-    const input = inputRow.createEl('input', { type: 'text', value: initialValue, cls: 'll-problem-input' });
-    input.placeholder = 'Problem name…';
-    input.focus();
-
-    const confirmBtn = inputRow.createEl('button', { text: 'Use this', cls: 'mod-cta' });
-    confirmBtn.addEventListener('click', async () => {
-      const name = input.value.trim();
-      if (!name) { new Notice('Please enter a problem name.'); return; }
-      if (this.problemName !== name) this._step2Data = null;
-      this.problemName = name;
-      if (this._step1Result) this._step1Result = { ...this._step1Result, problemName: name, isNew: false };
-      this.trajectory.push(`User manually entered problem name: [[${name}]]`);
-      await ensureProblemPage(this.app, name);
-      inputRow.remove();
-      buttonRow.empty();
-      this.renderStep2();
-    });
-  }
-
-  addSkipButton(buttonRow) {
-    const skipBtn = buttonRow.createEl('button', { text: 'Skip' });
-    skipBtn.addEventListener('click', () => {
-      this.trajectory.push('User skipped problem identification');
-      this.problemName = null;
-      this.renderStep2();
-    });
-  }
-
-  addCloseButton(buttonRow, label = 'Close') {
-    const btn = buttonRow.createEl('button', { text: label });
-    btn.addEventListener('click', () => this.close());
-  }
-
-  // ─── Step 2: Page retrieval ────────────────────────────────────────────────
-
-  async renderStep2() {
-    const { contentEl } = this;
-    contentEl.empty();
-    this.step = 2;
-    this.step2Visited = true;
-    this.renderNavBar();
-
-    if (this.thought.text) {
-      contentEl.createEl('p', { text: 'You said', cls: 'll-thought-label' });
-      contentEl.createEl('blockquote', { text: this.thought.text, cls: 'll-thought' });
-    }
-    contentEl.createEl('h2', { text: 'What has helped before' });
-
-    // Use cached Step 2 data if the problem name hasn't changed
-    let step2Data = this._step2Data;
-    if (!step2Data || step2Data.forProblem !== this.problemName) {
-      const statusEl = contentEl.createEl('p', { text: 'Searching…', cls: 'll-status' });
-
-      const mentionedNames = this.problemName ? [this.problemName] : [];
-      const retrievePages = getRetrievePages(this.app, mentionedNames);
-      this.trajectory.push(
-        `Called \`getRetrievePages\` for ${mentionedNames.map(n => `[[${n}]]`).join(', ') || '(none)'} → `
-        + (retrievePages.length ? retrievePages.map(p => `[[${p.name}]]`).join(', ') : '(none)')
-      );
-
-      const queryIndex = buildQueryIndex(this.app);
-      this.trajectory.push(
-        `Called \`buildQueryIndex\` → ${queryIndex.length} entries across ${new Set(queryIndex.map(e => e.page)).size} problems: `
-        + (queryIndex.length
-          ? queryIndex.map(e => `"${e.query}" → [[${e.page}]]`).join(', ')
-          : '(no queries indexed yet)')
-      );
-
-      const excludeNames = retrievePages.map(p => p.name);
-      const searchCacheKey = `sp:${this.thought.text}|${queryIndex.map(e => `${e.query}->${e.page}`).sort().join(',')}`;
-      this.trajectory.push(
-        `Called \`searchProblems\` with utterance, ${queryIndex.length}-entry index`
-        + (excludeNames.length ? `, excluding ${excludeNames.map(n => `[[${n}]]`).join(', ')}` : '')
-      );
-      const cachedSearch = this._cacheGet(searchCacheKey);
-      let aiMatches, warning;
-      if (cachedSearch) {
-        ({ matches: aiMatches, warning } = cachedSearch);
-        this.trajectory.push('`searchProblems` result served from cache');
-      } else {
-        ({ matches: aiMatches, warning } = await searchProblems(
-          this.thought.text,
-          queryIndex,
-          excludeNames,
-          this.settings,
-          this.usageCollector,
-        ));
-        this._cacheSet(searchCacheKey, { matches: aiMatches, warning });
-      }
-      this.trajectory.push(
-        `\`searchProblems\` returned: matches: ${aiMatches.map(n => `[[${n}]]`).join(', ') || '(none)'}`
-        + (warning ? `, warning="${warning}"` : '')
-      );
-
-      const allPageNames = [
-        ...(this.problemName ? [this.problemName] : []),
-        ...retrievePages.map(p => p.name),
-        ...aiMatches,
-      ].filter((name, i, arr) => arr.indexOf(name) === i);
-      this.trajectory.push(`Pages surfaced: ${allPageNames.map(n => `[[${n}]]`).join(', ') || '(none)'}`);
-
-      const summaries = await Promise.all(
-        allPageNames.map(async name => {
-          const solutions = await readProblemSummary(this.app, name) ?? [];
-          this.trajectory.push(
-            `\`readProblemSummary\` for "${name}" → ${solutions.length} solution(s)`
-            + (solutions.length ? ': ' + solutions.map(s => `"${s.text}"`).join(', ') : '')
-          );
-          return { name, solutions };
-        })
-      );
-
-      step2Data = { summaries, allPageNames, warning, forProblem: this.problemName };
-      this._step2Data = step2Data;
-      statusEl.remove();
-    }
-
-    const { summaries, allPageNames, warning } = step2Data;
-
-    if (warning) {
-      contentEl.createEl('p', { text: warning, cls: 'll-warning' });
-    }
-
-    // Log what Step 2 is about to display
-    this.trajectory.push(
-      `Step 2 displayed: ${summaries.length} card(s) — `
-      + (summaries.length
-        ? summaries.map(({ name, solutions }) =>
-            `[[${name}]] (${solutions.length} solution(s)${solutions.length ? ': ' + solutions.map(s => `"${s.text}"`).join(', ') : ''})`
-          ).join('; ')
-        : 'none')
-    );
-
-    if (summaries.length === 0) {
-      contentEl.createEl('p', {
-        text: 'No related pages found yet. Log solutions as you find them and they\'ll show up here.',
+    if (matches.length === 0) {
+      this.cardsEl.createEl('p', {
+        text: 'No matching pages. Use the box below to pull in a page by name.',
         cls: 'll-status',
       });
     }
 
-    // Render a card for every surfaced page; indicate when no solutions exist
-    const selected = new Set(allPageNames); // all selected by default
-    const cardsContainer = contentEl.createDiv({ cls: 'll-cards-container' });
-
-    const renderCard = (name, solutions) => {
-      const card = cardsContainer.createDiv({ cls: 'll-page-card' });
-      const cardHeader = card.createDiv({ cls: 'll-page-card-header' });
-      cardHeader.createEl('strong', { text: name });
-      const toggle = cardHeader.createEl('input', { type: 'checkbox' });
-      toggle.checked = true;
-      toggle.addEventListener('change', () => {
-        if (toggle.checked) selected.add(name);
-        else selected.delete(name);
-      });
-
-      if (solutions.length === 0) {
-        card.createEl('p', { text: 'No solutions logged yet.', cls: 'll-muted' });
-        return;
-      }
-
-      for (const solution of solutions) {
-        const solutionEl = card.createDiv({ cls: 'll-solution' });
-        solutionEl.createEl('span', { text: solution.text, cls: 'll-solution-text' });
-
-        const potentInstances = solution.instances.filter(i => i.detail).slice(-2);
-        if (potentInstances.length > 0) {
-          const instanceList = solutionEl.createEl('ul', { cls: 'll-instances' });
-          for (const instance of potentInstances) {
-            instanceList.createEl('li', {
-              text: `${instance.date}: "${instance.detail}"`,
-              cls: 'll-instance',
-            });
-          }
-        } else if (solution.instances.length > 0) {
-          solutionEl.createEl('span', {
-            text: ` (tried ${solution.instances.length}×)`,
-            cls: 'll-muted',
-          });
-        }
-      }
-    };
-
-    for (const { name, solutions } of summaries) renderCard(name, solutions);
-
-    // Add problem input — lets user manually surface additional pages
-    const allProblemNames = listProblemNames(this.app);
-    const datalistId = 'll-problem-suggestions';
-    const datalist = contentEl.createEl('datalist');
-    datalist.id = datalistId;
-
-    const addRow = contentEl.createDiv({ cls: 'll-add-problem-row' });
-    const addInput = addRow.createEl('input', {
-      type: 'text',
-      cls: 'll-add-problem-input',
-      placeholder: 'Add a related problem…',
-    });
-    addInput.setAttribute('list', datalistId);
-
-    const refreshDatalist = () => {
-      datalist.empty();
-      for (const name of allProblemNames) {
-        if (!selected.has(name)) {
-          const opt = datalist.createEl('option');
-          opt.value = name;
-        }
-      }
-    };
-    refreshDatalist();
-
-    const addBtn = addRow.createEl('button', { text: 'Add', cls: 'mod-cta' });
-    const doAdd = async () => {
-      const name = addInput.value.trim();
-      if (!name) return;
-      if (selected.has(name)) { addInput.value = ''; return; }
-      if (!allProblemNames.includes(name)) { addInput.value = ''; return; }
-      const solutions = await readProblemSummary(this.app, name) ?? [];
-      selected.add(name);
-      allPageNames.push(name);
-      renderCard(name, solutions);
-      this.trajectory.push(`User manually added page: [[${name}]]`);
-      addInput.value = '';
-      refreshDatalist();
-    };
-    addBtn.addEventListener('click', doAdd);
-    addInput.addEventListener('keydown', e => { if (e.key === 'Enter') doAdd(); });
-
-    // Done button
-    const buttonRow = contentEl.createDiv({ cls: 'll-button-row' });
-    const doneBtn = buttonRow.createEl('button', { text: 'Done', cls: 'mod-cta' });
-    doneBtn.addEventListener('click', () => {
-      this.selectedPages = [...selected];
-      this.trajectory.push(`User clicked Done in Step 2`);
-      this.close();
-    });
-
-    const skipBtn = buttonRow.createEl('button', { text: 'Skip' });
-    skipBtn.addEventListener('click', () => {
-      this.selectedPages = [];
-      this.trajectory.push(`User skipped Step 2`);
-      this.close();
-    });
-
+    for (const name of matches) await this.addPageCard(name);
   }
 
-  // ─── On close: write the trace record ─────────────────────────────────────
+  // Render one collapsible card for a problem page. Returns silently if the
+  // page is missing or already shown.
+  async addPageCard(name) {
+    if (this._shownPages.has(name)) return;
+    const page = await readProblemPage(this.app, name);
+    if (!page) return;
+    this._shownPages.add(name);
 
-  onClose() {
-    const { contentEl } = this;
-    contentEl.empty();
+    const card = this.cardsEl.createDiv({ cls: 'll-page-card' });
+    const header = card.createDiv({ cls: 'll-page-card-header' });
 
-    // Write the compact trace to the note.
-    // problemName is written as its own line in writeTrace, so exclude it
-    // from retrievedPages to avoid duplicating it.
-    const relatedPages = this.selectedPages.filter(p => p !== this.problemName);
-    this.trajectory.push(
-      `User selected pages: ${this.selectedPages.map(n => `[[${n}]]`).join(', ') || '(none)'}`
-    );
-    this.trajectory.push(
-      `Called \`writeTrace\` → thought="${this.thought.text}", problemName=${this.problemName ? `[[${this.problemName}]]` : 'null'}, retrievedPages: ${relatedPages.map(n => `[[${n}]]`).join(', ') || '(none)'}`
-    );
-    writeTrace(this.editor, {
-      fromLine: this.thought.fromLine,
-      toLine: this.thought.toLine,
-      ch0: this.thought.ch0,
-      ch1: this.thought.ch1,
-      thought: this.thought.text,
-      problemName: this.problemName,
-      retrievedPages: relatedPages,
+    const titleBtn = header.createEl('button', { cls: 'll-page-title' });
+    const caret = titleBtn.createSpan({ text: '▸', cls: 'll-caret' });
+    titleBtn.createSpan({ text: name, cls: 'll-page-name' });
+
+    this.makeAddButton(header, `page:${name}`, 'problem', `[[${name}]]`, `Added page [[${name}]] to note`);
+
+    const solutionsEl = card.createDiv({ cls: 'll-solutions' });
+    solutionsEl.style.display = 'none';
+    titleBtn.addEventListener('click', () => {
+      const open = solutionsEl.style.display !== 'none';
+      solutionsEl.style.display = open ? 'none' : 'block';
+      caret.setText(open ? '▸' : '▾');
     });
 
-    // Index the cue text on selected pages; remove it from unchecked pages
-    if (this.thought.text) {
-      const surfacedPages = this._step2Data?.allPageNames ?? [];
-      const uncheckedPages = surfacedPages.filter(p => !this.selectedPages.includes(p));
+    if (page.solutions.length === 0) {
+      solutionsEl.createEl('p', { text: 'No solutions logged yet.', cls: 'll-muted' });
+    }
+    for (const sol of page.solutions) this.renderSolution(solutionsEl, name, sol);
+  }
 
-      if (this.selectedPages.length > 0) {
-        this.trajectory.push(
-          `Called \`writeQueriesToPages\` → query="${this.thought.text}", pages: ${this.selectedPages.map(n => `[[${n}]]`).join(', ')}`
-        );
-        writeQueriesToPages(this.app, this.thought.text, this.selectedPages)
-          .catch(err => console.warn('Learning Loop: failed to write queries', err));
-      }
+  renderSolution(container, pageName, sol) {
+    const row = container.createDiv({ cls: 'll-solution' });
+    const head = row.createDiv({ cls: 'll-solution-head' });
+    head.createEl('span', { text: sol.text, cls: 'll-solution-text' });
 
-      if (uncheckedPages.length > 0) {
-        this.trajectory.push(
-          `Called \`removeQueriesFromPages\` → query="${this.thought.text}", pages: ${uncheckedPages.map(n => `[[${n}]]`).join(', ')}`
-        );
-        removeQueriesFromPages(this.app, this.thought.text, uncheckedPages)
-          .catch(err => console.warn('Learning Loop: failed to remove queries', err));
+    // ＋ inserts a block reference, creating a block id on the source line if needed.
+    this.makeAddButton(
+      head,
+      `sol:${pageName}:${sol.text}`,
+      'solution',
+      async () => {
+        const id = await ensureSolutionBlockId(this.app, pageName, sol.text);
+        if (!id) { new Notice('Could not link that solution.'); return null; }
+        return `[[${pageName}#^${id}|${sol.text}]]`;
+      },
+      `Added solution reference from [[${pageName}]] to note`,
+    );
+
+    const instances = sol.instances.filter(i => i.detail).slice(-2);
+    if (instances.length > 0) {
+      const list = row.createEl('ul', { cls: 'll-instances' });
+      for (const inst of instances) {
+        list.createEl('li', { text: `${formatNaturalDate(inst.date)}: "${inst.detail}"`, cls: 'll-instance' });
       }
+    } else if (sol.instances.length > 0) {
+      row.createEl('span', { text: ` (tried ${sol.instances.length}×)`, cls: 'll-muted' });
+    }
+  }
+
+  // A toggle ＋/✓ button. `kind` is 'problem' or 'solution'; `link` is either a
+  // ready string or an async function that resolves to one (for block refs).
+  makeAddButton(parent, key, kind, link, logMsg) {
+    const btn = parent.createEl('button', { cls: 'll-add-ref-btn' });
+    const sync = () => {
+      const added = this.references.has(key);
+      btn.setText(added ? '✓' : '＋');
+      btn.classList.toggle('is-added', added);
+    };
+    sync();
+    btn.addEventListener('click', async () => {
+      if (this.references.has(key)) {
+        this.references.delete(key);
+        this.trajectory.push(`Removed reference: ${key}`);
+      } else {
+        const value = typeof link === 'function' ? await link() : link;
+        if (!value) return;
+        this.references.set(key, { kind, link: value });
+        this.trajectory.push(logMsg);
+      }
+      sync();
+      this.updateFooter();
+    });
+    return btn;
+  }
+
+  // Box to pull a page into the list that search didn't surface.
+  renderAddPageRow(parent) {
+    const allNames = listProblemNames(this.app);
+    const row = parent.createDiv({ cls: 'll-add-problem-row' });
+    const input = row.createEl('input', { type: 'text', cls: 'll-add-problem-input' });
+    input.placeholder = 'Find a problem page…';
+    attachSuggestionDatalist(input, () => allNames.filter(n => !this._shownPages.has(n)));
+
+    const addBtn = row.createEl('button', { text: 'Show', cls: 'mod-cta' });
+    const doAdd = async () => {
+      const name = input.value.trim();
+      input.value = '';
+      if (!name || !allNames.includes(name) || this._shownPages.has(name)) return;
+      this.trajectory.push(`User pulled in page: [[${name}]]`);
+      await this.addPageCard(name);
+    };
+    addBtn.addEventListener('click', doAdd);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') doAdd(); });
+  }
+
+  renderFooter(parent) {
+    this.footerEl = parent.createDiv({ cls: 'll-button-row' });
+    this.updateFooter();
+  }
+
+  updateFooter() {
+    if (!this.footerEl) return;
+    this.footerEl.empty();
+    const n = this.references.size;
+    const doneBtn = this.footerEl.createEl('button', {
+      text: n > 0 ? `Insert ${n} reference${n === 1 ? '' : 's'}` : 'Done',
+      cls: 'mod-cta',
+    });
+    doneBtn.addEventListener('click', () => this.close());
+  }
+
+  onClose() {
+    this.contentEl.empty();
+
+    const refs = [...this.references.values()];
+    const relatedProblems = refs.filter(r => r.kind === 'problem').map(r => r.link);
+    const relatedSolutions = refs.filter(r => r.kind === 'solution').map(r => r.link);
+    this.trajectory.push(
+      refs.length
+        ? `Inserting ${relatedProblems.length} related problem(s) and ${relatedSolutions.length} related solution(s)`
+        : 'No references inserted',
+    );
+
+    // Only rewrite the note if the user actually chose references.
+    if (refs.length > 0) {
+      writeTrace(this.editor, {
+        fromLine: this.thought.fromLine,
+        toLine: this.thought.toLine,
+        ch0: this.thought.ch0,
+        ch1: this.thought.ch1,
+        thought: this.thought.text,
+        relatedProblems,
+        relatedSolutions,
+      });
     }
 
-    // Write combined usage + trajectory log
     const file = this.app.workspace.getActiveFile();
     const executionLink = buildExecutionWikiLink(this.app, file, this.thought.fromLine);
     writeCommandUsageLog(this.app, {
@@ -532,6 +276,40 @@ class HelpModal extends Modal {
       trajectoryEntries: this.trajectory,
       timestamp: this.executedAt,
     }).catch(err => console.warn('Learning Loop: failed to write usage log', err));
+  }
+}
+
+// Attaches an autocomplete datalist to `input`, populated by getSuggestions().
+function attachSuggestionDatalist(input, getSuggestions) {
+  const datalist = input.parentElement.createEl('datalist');
+  datalist.id = `ll-suggestions-${Math.random().toString(36).slice(2)}`;
+  input.setAttribute('list', datalist.id);
+  datalist.empty();
+  for (const name of getSuggestions()) datalist.createEl('option').value = name;
+}
+
+// Turns a stored date label like "2026-05-12-Tuesday" into natural language:
+// "Tuesday, May 12th, 2026." Falls back to the raw label if it can't be parsed.
+function formatNaturalDate(label) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(label ?? ''));
+  if (!m) return label;
+  const [, y, mo, d] = m;
+  const date = new Date(Number(y), Number(mo) - 1, Number(d));
+  if (Number.isNaN(date.getTime())) return label;
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+  const month = date.toLocaleDateString('en-US', { month: 'long' });
+  const day = Number(d);
+  return `${weekday}, ${month} ${day}${ordinalSuffix(day)}, ${y}`;
+}
+
+function ordinalSuffix(n) {
+  const tens = n % 100;
+  if (tens >= 11 && tens <= 13) return 'th';
+  switch (n % 10) {
+    case 1: return 'st';
+    case 2: return 'nd';
+    case 3: return 'rd';
+    default: return 'th';
   }
 }
 

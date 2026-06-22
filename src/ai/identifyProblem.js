@@ -4,12 +4,15 @@
  * ai/identifyProblem.js
  *
  * Pure function: given a user's thought/utterance and the list of existing
- * problem names, asks Claude to identify which problem it relates to (or name a new one).
+ * problem names, asks Claude to identify which problems it relates to (matching
+ * existing ones or naming new ones).
  *
  * Returns a plain result object — no side effects, no vault writes, no UI.
  */
 
 const { callAI, extractJsonObject } = require('./client');
+
+const CONFIDENCE_THRESHOLD = 0.5;
 
 /**
  * @param {string} utterance     - The user's thought text
@@ -17,9 +20,7 @@ const { callAI, extractJsonObject } = require('./client');
  * @param {object} settings
  * @returns {Promise<{
  *   status: 'matched' | 'unidentified' | 'no-api-key' | 'empty' | 'error',
- *   problemName?: string,
- *   isNew?: boolean,
- *   confidence?: number,
+ *   problems?: Array<{ problemName: string, isNew: boolean, confidence: number }>,
  *   message?: string,
  * }>}
  */
@@ -28,33 +29,43 @@ async function identifyProblem(utterance, existingNames, settings, collector = n
   if (settings?.aiProvider === 'anthropic' && !settings?.anthropicApiKey) return { status: 'no-api-key' };
 
   const prompt = [
-    'You are helping the user identify which learning problem their thought relates to.',
+    'You are helping the user identify which learning problems their thought relates to.',
+    'A thought may touch on several distinct problems — identify each one.',
     'Return ONLY raw JSON with this shape:',
-    '{"problemName":"Problem Name","matchedExisting":true,"confidence":0.9}',
+    '{"problems":[{"problemName":"Problem Name","matchedExisting":true,"confidence":0.9}]}',
     '',
     'Rules:',
+    '- Return one entry per distinct problem, ordered most-relevant first.',
     '- problemName should be concise, title-cased, and suitable as an Obsidian filename.',
     '- matchedExisting: true if it clearly maps to one of the existing names below.',
-    '- confidence: 0.0–1.0. Return < 0.5 if the problem is unclear.',
+    '- confidence: 0.0–1.0. Use < 0.5 for entries that are unclear.',
     '- If matchedExisting is true, use the exact existing name.',
+    '- Return an empty array if no problem is identifiable.',
     '',
     `Existing problem names: ${JSON.stringify(existingNames)}`,
     `User thought: ${JSON.stringify(utterance)}`,
   ].join('\n');
 
   try {
-    const text = await callAI(settings, prompt, 256, collector);
+    const text = await callAI(settings, prompt, 512, collector);
     const parsed = extractJsonObject(text);
 
-    const confidence = Number(parsed.confidence ?? 0);
-    if (!parsed.problemName || confidence < 0.5) {
-      return { status: 'unidentified', confidence };
-    }
+    const raw = Array.isArray(parsed.problems) ? parsed.problems : [];
+    const problems = raw
+      .map(entry => {
+        const confidence = Number(entry?.confidence ?? 0);
+        if (!entry?.problemName || confidence < CONFIDENCE_THRESHOLD) return null;
+        const problemName = resolveMatchedName(entry.problemName, existingNames);
+        const isNew = !existingNames.some(n => normalize(n) === normalize(problemName));
+        return { problemName, isNew, confidence };
+      })
+      .filter(Boolean)
+      // Drop duplicates that resolve to the same problem, keeping the first (highest-ranked).
+      .filter((p, i, arr) => arr.findIndex(o => normalize(o.problemName) === normalize(p.problemName)) === i);
 
-    const problemName = resolveMatchedName(parsed.problemName, existingNames);
-    const isNew = !existingNames.some(n => normalize(n) === normalize(problemName));
+    if (problems.length === 0) return { status: 'unidentified' };
 
-    return { status: 'matched', problemName, isNew, confidence };
+    return { status: 'matched', problems };
   } catch (error) {
     return { status: 'error', message: error.message };
   }

@@ -334,6 +334,116 @@ function formatDateLink(date = new Date()) {
   return `[[${y}/${m}/${name}|${name}]]`;
 }
 
+// Trailing Obsidian block id on a list item, e.g. "- solution text ^a1b2c3"
+const BLOCK_ID_RE = /\s+\^([a-zA-Z0-9-]+)\s*$/;
+
+/**
+ * Like parseProblemSummary, but also reports each solution's source line index
+ * and Obsidian block id (if any), so callers can build block references.
+ *
+ * @returns {Array<{ text: string, lineIndex: number, blockId: string|null,
+ *   instances: Array<{ date: string, detail: string|null }> }>}
+ */
+function parseProblemDetailed(content) {
+  const lines = content.split('\n');
+  const solutions = [];
+  let current = null;
+  let currentInstance = null;
+  let inFrontmatter = false;
+
+  lines.forEach((line, lineIndex) => {
+    if (line.trim() === '---') { inFrontmatter = !inFrontmatter; return; }
+    if (inFrontmatter) return;
+
+    if (/^\t-\s/.test(line) && !/^\t\t/.test(line)) {
+      const raw = line.replace(/^\t-\s+/, '');
+      const blockMatch = raw.match(BLOCK_ID_RE);
+      const text = raw.replace(BLOCK_ID_RE, '').trim();
+      current = { text, lineIndex, blockId: blockMatch ? blockMatch[1] : null, instances: [] };
+      solutions.push(current);
+      currentInstance = null;
+      return;
+    }
+    if (/^\t\t-\s/.test(line) && !/^\t\t\t/.test(line)) {
+      if (!current) return;
+      const raw = line.replace(/^\t\t-\s+/, '').trim();
+      const wikiMatch = raw.match(/\[\[[^\]]*\|([^\]]+)\]\]/) || raw.match(/\[\[([^\]]+)\]\]/);
+      currentInstance = { date: wikiMatch ? wikiMatch[1] : raw, detail: null };
+      current.instances.push(currentInstance);
+      return;
+    }
+    if (/^\t\t\t-\s/.test(line) && currentInstance && currentInstance.detail === null) {
+      currentInstance.detail = line.replace(/^\t\t\t-\s+/, '').trim();
+    }
+  });
+  return solutions;
+}
+
+function findProblemFile(app, pageName) {
+  return app.vault.getFiles()
+    .find(f => f.extension === 'md' && f.basename === pageName && f.path.startsWith(`${PROBLEMS_DIR}/`));
+}
+
+/**
+ * Read a problem page and return its solutions with line/block info.
+ * @returns {Promise<{ path: string, solutions: ReturnType<typeof parseProblemDetailed> } | null>}
+ */
+async function readProblemPage(app, pageName) {
+  const file = findProblemFile(app, pageName);
+  if (!file) return null;
+  const content = await app.vault.adapter.read(file.path);
+  return { path: file.path, solutions: parseProblemDetailed(content) };
+}
+
+/**
+ * Build a search index over the *contents* of existing problem pages — each
+ * page's name and every solution phrase become a searchable entry. Lets Help
+ * rank existing pages by relevance without depending on indexed query history.
+ *
+ * @returns {Promise<Array<{ query: string, page: string }>>}
+ */
+async function buildContentIndex(app) {
+  const files = app.vault.getFiles()
+    .filter(f => f.extension === 'md' && f.path.startsWith(`${PROBLEMS_DIR}/`));
+  const entries = [];
+  for (const file of files) {
+    entries.push({ query: file.basename, page: file.basename });
+    const content = await app.vault.adapter.read(file.path);
+    for (const sol of parseProblemDetailed(content)) {
+      if (sol.text) entries.push({ query: sol.text, page: file.basename });
+    }
+  }
+  return entries;
+}
+
+/**
+ * Ensure the solution line matching `solutionText` carries an Obsidian block id,
+ * writing one into the page if needed (like "Copy link to block"). Returns the
+ * block id, or null if the solution couldn't be found.
+ */
+async function ensureSolutionBlockId(app, pageName, solutionText) {
+  const file = findProblemFile(app, pageName);
+  if (!file) return null;
+  const content = await app.vault.adapter.read(file.path);
+  const lines = content.split('\n');
+  const target = normalize(solutionText);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!/^\t-\s/.test(line) || /^\t\t/.test(line)) continue;
+    const raw = line.replace(/^\t-\s+/, '');
+    const blockMatch = raw.match(BLOCK_ID_RE);
+    const text = raw.replace(BLOCK_ID_RE, '').trim();
+    if (normalize(text) !== target) continue;
+    if (blockMatch) return blockMatch[1];
+    const id = Math.random().toString(36).slice(2, 8);
+    lines[i] = `${line.replace(/\s*$/, '')} ^${id}`;
+    await app.vault.adapter.write(file.path, lines.join('\n'));
+    return id;
+  }
+  return null;
+}
+
 function normalize(name) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
@@ -348,6 +458,10 @@ module.exports = {
   readProblemFiles,
   readProblemSummary,
   parseProblemSummary,  // exported for tests
+  parseProblemDetailed, // exported for tests
+  readProblemPage,
+  buildContentIndex,
+  ensureSolutionBlockId,
   listProblemNames,
   buildQueryIndex,
   getRetrievePages,
