@@ -16,6 +16,7 @@ const { parseToJsonCommand } = require('./commands/parseToJson');
 const { parseToMarkdownCommand } = require('./commands/parseToMarkdown');
 const { switchWorktreeCommand } = require('./commands/switchWorktree');
 const { registerSmartOpenRight } = require('./commands/smartOpenRight');
+const { reportButtonExtension } = require('./editor/reportButton');
 const { OptionsModal } = require('./ui/OptionsModal');
 const { startSlackScheduler } = require('./slack/scheduler');
 
@@ -48,6 +49,9 @@ class LearningLoopPlugin extends Plugin {
 
     this._startSlackScheduler();
     registerSmartOpenRight(this);
+
+    // Renders a "＋ Report" button on each solution reference in a trace.
+    this.registerEditorExtension(reportButtonExtension(this.app));
 
     this.addRibbonIcon('repeat-2', 'Learning Loop: Options', () => {
       this.app.commands.executeCommandById('learning-loop:options');

@@ -13,6 +13,8 @@ const context = await esbuild.context({
   external: [
     'obsidian',
     'electron',
+    '@codemirror/view',
+    '@codemirror/state',
     ...builtinModules,
   ],
   format: 'cjs',

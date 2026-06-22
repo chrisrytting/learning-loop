@@ -224,3 +224,56 @@
   user-select: text;
   -webkit-user-select: text;
 }
+
+/* ─── ＋ Report button (in-trace, live preview) ───────────────────────────── */
+.ll-report-btn {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+  line-height: 1.4;
+  vertical-align: baseline;
+}
+
+.ll-report-btn:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-accent);
+  border-color: var(--color-accent);
+}
+
+/* ─── Report modal ────────────────────────────────────────────────────────── */
+.ll-report-modal .ll-report-heading {
+  margin: 0 0 8px;
+  font-size: var(--h3-size);
+}
+
+.ll-report-modal .ll-report-solution {
+  border-left: 3px solid var(--color-accent);
+  background: var(--background-secondary);
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  color: var(--text-normal);
+}
+
+.ll-report-modal .ll-report-hint {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin: 0 0 10px;
+}
+
+.ll-report-modal .ll-report-input {
+  width: 100%;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.ll-report-modal .ll-report-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
