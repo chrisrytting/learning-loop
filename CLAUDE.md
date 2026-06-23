@@ -8,7 +8,7 @@ An Obsidian plugin (JS/Node, built with esbuild) that helps users build a person
 - Entry point: `src/main.js` → compiled to `main.js` at repo root
 - Tests: `src/**/*.test.js` (Jest)
 - Obsidian vault used for development: `/Users/chrisrytting/Tiny Obsidian`
-- Plugin install location: `/Users/chrisrytting/Tiny Obsidian/.obsidian/plugins/learning-loop` (symlinked to whichever worktree is active)
+- Plugin install location: `/Users/chrisrytting/Tiny Obsidian/.obsidian/plugins/learning-loop` (a symlink the **human** repoints by hand to whichever worktree they want to test — agents never touch it; see Worktree workflow)
 
 ## Build & test
 ```bash
@@ -18,14 +18,16 @@ npm test        # run Jest tests
 After building, reload the plugin in Obsidian (disable/re-enable) to pick up changes.
 
 ## Worktree workflow
-Feature work happens in git worktrees created under `.claude/worktrees/`. The Obsidian plugin symlink points to whichever worktree is active so changes are immediately testable.
+Feature work happens in git worktrees created under `.claude/worktrees/`.
+
+**The Obsidian plugin symlink (`/Users/chrisrytting/Tiny Obsidian/.obsidian/plugins/learning-loop`) is human-owned. Agents must NEVER repoint it.** There is exactly one plugin slot in the vault, and only the human decides which worktree is being tested at any moment. An agent silently repointing it breaks whatever branch the human is currently testing in Obsidian. Agents build and run Jest inside their own worktree (neither needs the symlink); the human repoints the symlink by hand when they sit down to test a specific branch.
 
 **When merging a branch into main and cleaning up:**
 1. Merge the branch: `git merge <branch>` from the main repo
 2. Build: `npm run build`
-3. Repoint the Obsidian symlink back to main: `ln -sfn "/Users/chrisrytting/code/learning-loop" "/Users/chrisrytting/Tiny Obsidian/.obsidian/plugins/learning-loop"`
-4. Remove the worktree: `git worktree remove .claude/worktrees/<name>`
-5. Delete the branch: `git branch -d <branch>`
+3. Remove the worktree: `git worktree remove .claude/worktrees/<name>`
+4. Delete the branch: `git branch -d <branch>`
+5. Do NOT touch the symlink. If it happened to point into the just-removed worktree it is now dangling — say so in your summary and let the human repoint it; don't repoint it yourself, since it may be aimed at a branch they're actively testing.
 
 ## Architecture
 - `src/ai/` — Claude/Ollama API calls, cost tracking, usage collection
