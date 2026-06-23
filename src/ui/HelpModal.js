@@ -46,6 +46,16 @@ class HelpModal extends Modal {
     // References the user has chosen to insert, keyed by a stable id so the ＋
     // buttons can toggle. Value is the ready-to-write link string.
     this.references = new Map();
+    for (const link of thought.relatedProblems || []) {
+      this.references.set(referenceKey('problem', link), { kind: 'problem', link });
+    }
+    const solutionEntries = new Map(
+      (thought.relatedSolutionEntries || []).map(entry => [entry.link, entry]),
+    );
+    for (const link of thought.relatedSolutions || []) {
+      const children = solutionEntries.get(link)?.children || [];
+      this.references.set(referenceKey('solution', link), { kind: 'solution', link, children });
+    }
 
     this.trajectory = [];
     if (thought.text) this.trajectory.push(`User uttered: "${thought.text}"`);
@@ -247,15 +257,19 @@ class HelpModal extends Modal {
 
     const refs = [...this.references.values()];
     const relatedProblems = refs.filter(r => r.kind === 'problem').map(r => r.link);
-    const relatedSolutions = refs.filter(r => r.kind === 'solution').map(r => r.link);
+    const relatedSolutionEntries = refs
+      .filter(r => r.kind === 'solution')
+      .map(r => ({ link: r.link, children: r.children || [] }));
+    const relatedSolutions = relatedSolutionEntries.map(entry => entry.link);
     this.trajectory.push(
       refs.length
         ? `Inserting ${relatedProblems.length} related problem(s) and ${relatedSolutions.length} related solution(s)`
         : 'No references inserted',
     );
 
-    // Only rewrite the note if the user actually chose references.
-    if (refs.length > 0) {
+    // New thoughts only become traces after a reference is chosen. Existing
+    // traces are always rewritten so removing their last reference also sticks.
+    if (refs.length > 0 || this.thought.isExistingTrace) {
       writeTrace(this.editor, {
         fromLine: this.thought.fromLine,
         toLine: this.thought.toLine,
@@ -264,6 +278,7 @@ class HelpModal extends Modal {
         thought: this.thought.text,
         relatedProblems,
         relatedSolutions,
+        relatedSolutionEntries,
       });
     }
 
@@ -277,6 +292,13 @@ class HelpModal extends Modal {
       timestamp: this.executedAt,
     }).catch(err => console.warn('Learning Loop: failed to write usage log', err));
   }
+}
+
+function referenceKey(kind, link) {
+  const match = /^\[\[([^\]#|]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]$/.exec(link);
+  if (!match) return `existing:${kind}:${link}`;
+  if (kind === 'problem') return `page:${match[1]}`;
+  return `sol:${match[1]}:${match[2] || link}`;
 }
 
 // Attaches an autocomplete datalist to `input`, populated by getSuggestions().
