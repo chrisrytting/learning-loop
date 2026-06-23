@@ -16,6 +16,7 @@ const { parseToJsonCommand } = require('./commands/parseToJson');
 const { parseToMarkdownCommand } = require('./commands/parseToMarkdown');
 const { switchWorktreeCommand } = require('./commands/switchWorktree');
 const { registerSmartOpenRight } = require('./commands/smartOpenRight');
+const { registerReminders } = require('./reminders/reminders');
 const { OptionsModal } = require('./ui/OptionsModal');
 const { startSlackScheduler } = require('./slack/scheduler');
 
@@ -31,6 +32,7 @@ const DEFAULT_SETTINGS = {
   slackLastTs: '',
   enableAiCache: false,
   aiCache: {},
+  reminders: [],
 };
 
 class LearningLoopPlugin extends Plugin {
@@ -48,6 +50,7 @@ class LearningLoopPlugin extends Plugin {
 
     this._startSlackScheduler();
     registerSmartOpenRight(this);
+    registerReminders(this);
 
     this.addRibbonIcon('repeat-2', 'Learning Loop: Options', () => {
       this.app.commands.executeCommandById('learning-loop:options');
@@ -112,6 +115,7 @@ class LearningLoopPlugin extends Plugin {
 
   onunload() {
     this._stopSlackScheduler?.();
+    this._reminderScheduler?.dispose();
   }
 }
 
