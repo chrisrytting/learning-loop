@@ -15,6 +15,7 @@ const context = await esbuild.context({
     'electron',
     '@codemirror/view',
     '@codemirror/state',
+    '@codemirror/language',
     ...builtinModules,
   ],
   format: 'cjs',

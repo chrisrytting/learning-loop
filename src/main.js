@@ -17,6 +17,7 @@ const { parseToMarkdownCommand } = require('./commands/parseToMarkdown');
 const { switchWorktreeCommand } = require('./commands/switchWorktree');
 const { registerSmartOpenRight } = require('./commands/smartOpenRight');
 const { reportButtonExtension } = require('./editor/reportButton');
+const { registerReminders } = require('./reminders/reminders');
 const { OptionsModal } = require('./ui/OptionsModal');
 const { startSlackScheduler } = require('./slack/scheduler');
 
@@ -32,6 +33,7 @@ const DEFAULT_SETTINGS = {
   slackLastTs: '',
   enableAiCache: false,
   aiCache: {},
+  reminders: [],
 };
 
 class LearningLoopPlugin extends Plugin {
@@ -49,6 +51,7 @@ class LearningLoopPlugin extends Plugin {
 
     this._startSlackScheduler();
     registerSmartOpenRight(this);
+    registerReminders(this);
 
     // Renders a "＋ Report" button on each solution reference in a trace.
     this.registerEditorExtension(reportButtonExtension(this.app));
@@ -116,6 +119,7 @@ class LearningLoopPlugin extends Plugin {
 
   onunload() {
     this._stopSlackScheduler?.();
+    this._reminderScheduler?.dispose();
   }
 }
 

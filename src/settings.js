@@ -10,6 +10,7 @@ const { PluginSettingTab, Setting, Notice } = require('obsidian');
 const { FolderPickModal } = require('./ui/FolderPickModal');
 const { normalizeBasePath, valuesFilePath } = require('./vault/values');
 const { runSlackCheck } = require('./slack/scheduler');
+const { formatFireAt } = require('./reminders/reminders');
 
 class LearningLoopSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
@@ -167,6 +168,47 @@ class LearningLoopSettingTab extends PluginSettingTab {
             new Notice('Slack error: ' + e.message);
           }
         }));
+
+    // ── Reminders ────────────────────────────────────────────────────────────
+    containerEl.createEl('h2', { text: 'Reminders' });
+
+    const scheduler = this.plugin._reminderScheduler;
+    const reminders = [...(this.plugin.settings.reminders || [])].sort(
+      (a, b) => a.fireAt - b.fireAt,
+    );
+
+    if (!reminders.length) {
+      containerEl.createEl('p', {
+        text: 'No pending reminders. Add a `learning-loop-reminder` code block to a note to set one.',
+        cls: 'setting-item-description',
+      });
+    } else {
+      for (const r of reminders) {
+        const overdue = r.fireAt <= Date.now();
+        new Setting(containerEl)
+          .setName(r.body || 'Reminder')
+          .setDesc(`${overdue ? 'Overdue — ' : ''}${formatFireAt(r.fireAt)} · ${r.path}`)
+          .addButton(btn => btn
+            .setButtonText('Open')
+            .onClick(() => {
+              const link = r.blockId ? `${r.path}#^${r.blockId}` : r.path;
+              this.app.workspace.openLinkText(link, '', false);
+            }))
+          .addButton(btn => btn
+            .setButtonText('Cancel')
+            .setWarning()
+            .onClick(async () => {
+              if (scheduler) {
+                await scheduler.remove(r.id);
+              } else {
+                this.plugin.settings.reminders =
+                  (this.plugin.settings.reminders || []).filter(x => x.id !== r.id);
+                await this.plugin.saveSettings();
+              }
+              this.display();
+            }));
+      }
+    }
 
     // ── Dev ──────────────────────────────────────────────────────────────────
     containerEl.createEl('h2', { text: 'Dev' });
