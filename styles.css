@@ -245,6 +245,113 @@
   border-color: var(--color-accent);
 }
 
+/* ─── Exact block backlinks ──────────────────────────────────────────────── */
+.ll-block-backlinks-badge {
+  display: inline-flex;
+  min-width: 25px;
+  height: 23px;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 0 6px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-medium);
+  line-height: 1;
+}
+
+.ll-block-backlinks-badge:hover {
+  border-color: var(--color-accent);
+  background: var(--background-modifier-hover);
+  color: var(--text-accent);
+}
+
+/* Keep every count in one visual column at the right edge of the editor. */
+.markdown-source-view .cm-line:has(.ll-block-backlinks-badge) {
+  position: relative;
+  padding-right: 37px;
+}
+
+.markdown-source-view .ll-block-backlinks-badge {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+}
+
+/* The same alignment when the note is in Reading View. */
+.markdown-reading-view [data-block-id]:has(> .ll-block-backlinks-badge) {
+  position: relative;
+  padding-right: 37px;
+}
+
+.markdown-reading-view [data-block-id] > .ll-block-backlinks-badge {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+}
+
+.ll-block-backlinks-popover {
+  position: fixed;
+  z-index: var(--layer-popover, 1000);
+  max-height: min(420px, calc(100vh - 24px));
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 9px;
+  background: var(--background-primary);
+  box-shadow: var(--shadow-s);
+}
+
+.ll-block-backlinks-heading {
+  padding: 4px 7px 7px;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+}
+
+.ll-block-backlinks-result {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 7px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+  cursor: pointer;
+  text-align: left;
+}
+
+.ll-block-backlinks-result:hover {
+  background: var(--background-modifier-hover);
+}
+
+.ll-block-backlinks-title {
+  color: var(--text-accent);
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-medium);
+}
+
+.ll-block-backlinks-snippet {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ─── Report modal ────────────────────────────────────────────────────────── */
 .ll-report-modal .ll-report-heading {
   margin: 0 0 8px;
