@@ -17,6 +17,7 @@ const { parseToMarkdownCommand } = require('./commands/parseToMarkdown');
 const { switchWorktreeCommand } = require('./commands/switchWorktree');
 const { registerSmartOpenRight } = require('./commands/smartOpenRight');
 const { reportButtonExtension } = require('./editor/reportButton');
+const { registerBlockBacklinks } = require('./editor/blockBacklinks');
 const { registerReminders } = require('./reminders/reminders');
 const { OptionsModal } = require('./ui/OptionsModal');
 const { startSlackScheduler } = require('./slack/scheduler');
@@ -55,6 +56,9 @@ class LearningLoopPlugin extends Plugin {
 
     // Renders a "＋ Report" button on each solution reference in a trace.
     this.registerEditorExtension(reportButtonExtension(this.app));
+
+    // Shows exact, block-level backlinks beside any referenced ^block-id.
+    registerBlockBacklinks(this);
 
     this.addRibbonIcon('repeat-2', 'Learning Loop: Options', () => {
       this.app.commands.executeCommandById('learning-loop:options');
