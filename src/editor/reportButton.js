@@ -94,12 +94,18 @@ class ReportButtonWidget extends WidgetType {
 
 function buildDecorations(app, view) {
   const builder = new RangeSetBuilder();
+  // Inline widgets participate in CodeMirror's visual-line geometry. When the
+  // cursor is on a solution line, an end-of-line button can therefore make
+  // `gj`/`gk` land on the same document position instead of crossing the line.
+  // Leave the active line as plain text; the button reappears after the cursor
+  // moves away (selection changes already trigger a decoration rebuild below).
+  const activeLineNumber = view.state.doc.lineAt(view.state.selection.main.head).number;
   for (const { from, to } of view.visibleRanges) {
     let pos = from;
     while (pos <= to) {
       const line = view.state.doc.lineAt(pos);
       const match = SOLUTION_LINE_RE.exec(line.text);
-      if (match) {
+      if (match && line.number !== activeLineNumber) {
         const [, indent, page, solutionBlockId, label] = match;
         builder.add(
           line.to,
