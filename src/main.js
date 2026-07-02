@@ -15,6 +15,7 @@ const { compareToValuesCommand } = require('./commands/compareToValues');
 const { parseToJsonCommand } = require('./commands/parseToJson');
 const { parseToMarkdownCommand } = require('./commands/parseToMarkdown');
 const { switchWorktreeCommand } = require('./commands/switchWorktree');
+const { addPagesCommand } = require('./commands/addPages');
 const { registerSmartOpenRight } = require('./commands/smartOpenRight');
 const { reportButtonExtension } = require('./editor/reportButton');
 const { registerBlockBacklinks } = require('./editor/blockBacklinks');
@@ -84,6 +85,12 @@ class LearningLoopPlugin extends Plugin {
       id: 'log',
       name: 'Log Problem / Solution',
       editorCallback: (editor) => logCommand(this.app, editor, this.settings),
+    });
+
+    this.addCommand({
+      id: 'add-pages',
+      name: 'Add pages',
+      editorCallback: (editor) => addPagesCommand(this.app, editor),
     });
 
     this.addCommand({

@@ -198,6 +198,36 @@
   margin-top: 4px;
 }
 
+/* ─── Add pages modal ─────────────────────────────────────────────────────── */
+.ll-add-pages-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ll-add-pages-search { width: 100%; }
+
+.ll-add-pages-results {
+  max-height: min(55vh, 440px);
+  overflow-y: auto;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+}
+
+.ll-add-pages-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.ll-add-pages-result:hover { background: var(--background-modifier-hover); }
+.ll-add-pages-result input { margin: 0; }
+.ll-add-pages-title { color: var(--text-normal); }
+.ll-add-pages-path, .ll-add-pages-empty { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.ll-add-pages-empty { padding: 12px; }
+
 /* ─── Compare modal (unchanged) ───────────────────────────────────────────── */
 .ll-compare-modal,
 .ll-compare-modal .ll-thought,
