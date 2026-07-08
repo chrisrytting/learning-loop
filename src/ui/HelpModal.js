@@ -25,6 +25,7 @@ const {
 const { buildExecutionWikiLink } = require('../vault/executionLink');
 const { writeCommandUsageLog } = require('../vault/logs');
 const { writeTrace } = require('../vault/trace');
+const { registerModalShortcuts } = require('./modalShortcuts');
 
 class HelpModal extends Modal {
   /**
@@ -62,13 +63,30 @@ class HelpModal extends Modal {
 
     // Pages already pulled into the list (by search or manual add).
     this._shownPages = new Set();
+    // Closing by Escape, the close icon, or other ambient means is a cancel.
+    // Only finish() opts into writing the selected references.
+    this.cancelled = true;
   }
 
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('ll-help-modal');
+    registerModalShortcuts(this.scope, {
+      primary: () => this.finish(),
+      cancel: () => this.cancel(),
+    }, { enterInSingleLineInput: false });
     this.render();
+  }
+
+  finish() {
+    this.cancelled = false;
+    this.close();
+  }
+
+  cancel() {
+    this.cancelled = true;
+    this.close();
   }
 
   render() {
@@ -246,30 +264,37 @@ class HelpModal extends Modal {
     this.footerEl.empty();
     const n = this.references.size;
     const doneBtn = this.footerEl.createEl('button', {
-      text: n > 0 ? `Insert ${n} reference${n === 1 ? '' : 's'}` : 'Done',
+      text: n > 0
+        ? `Insert ${n} reference${n === 1 ? '' : 's'} (Enter)`
+        : 'Done (Enter)',
       cls: 'mod-cta',
     });
-    doneBtn.addEventListener('click', () => this.close());
+    doneBtn.addEventListener('click', () => this.finish());
+
+    const cancelBtn = this.footerEl.createEl('button', { text: 'Cancel (Esc)' });
+    cancelBtn.addEventListener('click', () => this.cancel());
   }
 
   onClose() {
     this.contentEl.empty();
 
-    const refs = [...this.references.values()];
+    const refs = this.cancelled ? [] : [...this.references.values()];
     const relatedProblems = refs.filter(r => r.kind === 'problem').map(r => r.link);
     const relatedSolutionEntries = refs
       .filter(r => r.kind === 'solution')
       .map(r => ({ link: r.link, children: r.children || [] }));
     const relatedSolutions = relatedSolutionEntries.map(entry => entry.link);
     this.trajectory.push(
-      refs.length
+      this.cancelled
+        ? 'Cancelled without inserting references'
+        : refs.length
         ? `Inserting ${relatedProblems.length} related problem(s) and ${relatedSolutions.length} related solution(s)`
         : 'No references inserted',
     );
 
     // New thoughts only become traces after a reference is chosen. Existing
     // traces are always rewritten so removing their last reference also sticks.
-    if (refs.length > 0 || this.thought.isExistingTrace) {
+    if (!this.cancelled && (refs.length > 0 || this.thought.isExistingTrace)) {
       writeTrace(this.editor, {
         fromLine: this.thought.fromLine,
         toLine: this.thought.toLine,

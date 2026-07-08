@@ -124,12 +124,12 @@ async function readProblemSummary(app, pageName) {
  * @param {{
  *   problem: string,
  *   solutions: string[],
- *   instanceDetail: string,
+ *   instanceLink?: string|null,
  * }} entry
  * @returns {Promise<{path: string, problemName: string, oldContent: string, newContent: string}>}
  */
 async function writeProblemLog(app, entry) {
-  const { problem, solutions, instanceDetail } = entry;
+  const { problem, solutions, instanceLink = null } = entry;
   const adapter = app.vault.adapter;
 
   if (!await adapter.exists(PROBLEMS_DIR)) await adapter.mkdir(PROBLEMS_DIR);
@@ -137,8 +137,7 @@ async function writeProblemLog(app, entry) {
   const destination = findDestination(app, problem);
   const exists = await adapter.exists(destination.path);
   const oldContent = exists ? await adapter.read(destination.path) : '';
-  const dateLink = formatDateLink();
-  const newContent = appendLog(oldContent, destination.problemName, solutions, instanceDetail, dateLink);
+  const newContent = appendLog(oldContent, destination.problemName, solutions, instanceLink);
 
   await adapter.write(destination.path, newContent);
   return { path: destination.path, problemName: destination.problemName, oldContent, newContent };
@@ -210,9 +209,15 @@ async function ensureProblemPage(app, problemName) {
 
 function parseProblemFile(basename, content) {
   const solutions = [];
+  const hasSolutionsSection = content.split('\n').some(line => line === '- Solutions');
+  let inSolutions = !hasSolutionsSection;
   for (const line of content.split('\n')) {
+    if (/^-\s+/.test(line)) {
+      inSolutions = line === '- Solutions' || !hasSolutionsSection;
+      continue;
+    }
     const match = line.match(/^\t-\s+(.+?)\s*$/);
-    if (match) solutions.push(match[1]);
+    if (inSolutions && match) solutions.push(match[1]);
   }
   return { file: basename.replace(/\.md$/, ''), solutions };
 }
@@ -238,14 +243,23 @@ function parseProblemFile(basename, content) {
  */
 function parseProblemSummary(content) {
   const lines = content.split('\n');
+  const hasSolutionsSection = lines.some(line => line === '- Solutions');
   const solutions = [];
   let currentSolution = null;
   let currentInstance = null;
   let inFrontmatter = false;
+  let inSolutions = !hasSolutionsSection;
 
   for (const line of lines) {
     if (line.trim() === '---') { inFrontmatter = !inFrontmatter; continue; }
     if (inFrontmatter) continue;
+    if (/^-\s+/.test(line)) {
+      inSolutions = line === '- Solutions' || !hasSolutionsSection;
+      currentSolution = null;
+      currentInstance = null;
+      continue;
+    }
+    if (!inSolutions) continue;
 
     // Solution line: exactly one leading tab
     if (/^\t-\s/.test(line) && !/^\t\t/.test(line)) {
@@ -286,52 +300,90 @@ function findDestination(app, problemName) {
   return { path: `${PROBLEMS_DIR}/${title}.md`, problemName: title };
 }
 
-function appendLog(content, problemName, solutions, instanceDetail, dateLink) {
-  if (!content.trim()) return buildProblemFile(problemName, solutions, instanceDetail, dateLink);
+function appendLog(content, problemName, solutions, instanceLink) {
+  if (!content.trim()) return buildProblemFile(problemName, solutions, instanceLink);
 
   const lines = content.replace(/\n*$/g, '').split('\n');
+  const legacyRoot = lines.findIndex(line => line === `- ${problemName}`);
+  if (legacyRoot !== -1) lines[legacyRoot] = '- Solutions';
+
+  let solutionsRoot = lines.findIndex(line => line === '- Solutions');
+  if (solutionsRoot === -1) {
+    lines.push('- Solutions');
+    solutionsRoot = lines.length - 1;
+  }
+
   for (const solution of solutions) {
     const solutionLine = `\t- ${solution}`;
-    const existingIndex = lines.findIndex(l => l.trim() === solutionLine.trim() && l.startsWith('\t- '));
-    const entryLines = [`\t\t- ${dateLink}`];
-    if (instanceDetail) entryLines.push(`\t\t\t- ${instanceDetail}`);
+    const sectionEnd = findSectionEnd(lines, solutionsRoot);
+    const existingIndex = lines.findIndex((line, index) => (
+      index > solutionsRoot
+      && index < sectionEnd
+      && line === solutionLine
+    ));
 
     if (existingIndex === -1) {
-      lines.push(solutionLine, ...entryLines);
-      continue;
+      lines.splice(sectionEnd, 0, solutionLine);
     }
-
-    let insertIndex = lines.length;
-    for (let i = existingIndex + 1; i < lines.length; i++) {
-      if (/^\t-\s+/.test(lines[i])) { insertIndex = i; break; }
-    }
-    lines.splice(insertIndex, 0, ...entryLines);
   }
+
+  if (instanceLink) appendUniqueInstance(lines, instanceLink);
   return lines.join('\n') + '\n';
 }
 
-function buildProblemFile(problemName, solutions, instanceDetail, dateLink) {
-  const lines = [`- ${problemName}`];
+function buildProblemFile(problemName, solutions, instanceLink) {
+  const lines = ['- Solutions'];
   for (const s of solutions) {
     lines.push(`\t- ${s}`);
-    lines.push(`\t\t- ${dateLink}`);
-    if (instanceDetail) lines.push(`\t\t\t- ${instanceDetail}`);
   }
+  if (instanceLink) lines.push('- Instances', ...formatInstanceLines(instanceLink));
   return lines.join('\n') + '\n';
 }
 
 function buildNewProblemFile(problemName) {
   const tag = problemName.toLowerCase().replace(/\s+/g, '-');
-  return ['---', 'tags:', `  - ${tag}`, '---', '', `- ${problemName}`, ''].join('\n');
+  return ['---', 'tags:', `  - ${tag}`, '---', '', '- Solutions', '', '- Instances', ''].join('\n');
 }
 
-function formatDateLink(date = new Date()) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
-  const name = `${y}-${m}-${d}-${weekday}`;
-  return `[[${y}/${m}/${name}|${name}]]`;
+function findSectionEnd(lines, rootIndex) {
+  for (let i = rootIndex + 1; i < lines.length; i++) {
+    if (/^-\s+/.test(lines[i])) return i;
+  }
+  return lines.length;
+}
+
+function appendUniqueInstance(lines, instanceLink) {
+  let instancesRoot = lines.findIndex(line => line === '- Instances');
+  if (instancesRoot === -1) {
+    lines.push('- Instances');
+    instancesRoot = lines.length - 1;
+  }
+  const sectionEnd = findSectionEnd(lines, instancesRoot);
+  const instanceLines = formatInstanceLines(instanceLink);
+  const blockTarget = instanceLink.match(/^\[\[([^|\]]+)(?:\|[^\]]+)?\]\]$/)?.[1];
+  const existingIndex = lines
+    .slice(instancesRoot + 1, sectionEnd)
+    .findIndex(line => blockTarget && line.includes(blockTarget));
+  if (existingIndex === -1) {
+    lines.splice(sectionEnd, 0, ...instanceLines);
+  } else {
+    const absoluteIndex = instancesRoot + 1 + existingIndex;
+    const alreadyNested = lines[absoluteIndex] === instanceLines[1]
+      && lines[absoluteIndex - 1] === instanceLines[0];
+    if (!alreadyNested) lines.splice(absoluteIndex, 1, ...instanceLines);
+  }
+}
+
+function formatInstanceLines(instanceLink) {
+  const match = instanceLink.match(/^\[\[([^|\]]+)(?:\|([^\]]+))?\]\]$/);
+  if (!match) return [`\t- Instance`, `\t\t- !${instanceLink}`];
+  const [, blockTarget, display] = match;
+  const fileTarget = blockTarget.replace(/#\^[^#]+$/, '');
+  const fileName = display || fileTarget.split('/').pop();
+  return [
+    `\t- [[${fileName}]]`,
+    `\t\t- ![[${blockTarget}]]`,
+  ];
 }
 
 // Trailing Obsidian block id on a list item, e.g. "- solution text ^a1b2c3"
@@ -346,14 +398,23 @@ const BLOCK_ID_RE = /\s+\^([a-zA-Z0-9-]+)\s*$/;
  */
 function parseProblemDetailed(content) {
   const lines = content.split('\n');
+  const hasSolutionsSection = lines.some(line => line === '- Solutions');
   const solutions = [];
   let current = null;
   let currentInstance = null;
   let inFrontmatter = false;
+  let inSolutions = !hasSolutionsSection;
 
   lines.forEach((line, lineIndex) => {
     if (line.trim() === '---') { inFrontmatter = !inFrontmatter; return; }
     if (inFrontmatter) return;
+    if (/^-\s+/.test(line)) {
+      inSolutions = line === '- Solutions' || !hasSolutionsSection;
+      current = null;
+      currentInstance = null;
+      return;
+    }
+    if (!inSolutions) return;
 
     if (/^\t-\s/.test(line) && !/^\t\t/.test(line)) {
       const raw = line.replace(/^\t-\s+/, '');

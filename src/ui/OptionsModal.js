@@ -10,6 +10,8 @@
 const { Modal } = require('obsidian');
 const { helpCommand } = require('../commands/help');
 const { logCommand } = require('../commands/log');
+const { registerOptionsShortcuts } = require('./optionsShortcuts');
+const { getEditorPromptText } = require('./promptText');
 
 class OptionsModal extends Modal {
   /**
@@ -24,12 +26,34 @@ class OptionsModal extends Modal {
     this.plugin = plugin;
   }
 
+  chooseHelp() {
+    this.close();
+    helpCommand(this.app, this.editor, this.settings, this.plugin);
+  }
+
+  chooseLog() {
+    this.close();
+    logCommand(this.app, this.editor, this.settings);
+  }
+
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
     contentEl.addClass('ll-options-modal');
 
+    // Single-key choices keep this lightweight modal fully keyboard-driven.
+    // Modal's key scope is active only while the modal is open and is cleaned
+    // up automatically when it closes.
+    registerOptionsShortcuts(this.scope, {
+      help: () => this.chooseHelp(),
+      log: () => this.chooseLog(),
+    });
+
     contentEl.createEl('h2', { text: 'Learning Loop' });
+    const promptText = getEditorPromptText(this.editor);
+    if (promptText) {
+      contentEl.createEl('blockquote', { text: promptText, cls: 'll-thought' });
+    }
 
     const grid = contentEl.createDiv({ cls: 'll-options-grid' });
 
@@ -39,11 +63,8 @@ class OptionsModal extends Modal {
     helpCard.createEl('p', {
       text: "You're stuck or working through something right now. The plugin will identify the problem and surface relevant pages from your vault.",
     });
-    const helpBtn = helpCard.createEl('button', { text: 'Get Help', cls: 'mod-cta' });
-    helpBtn.addEventListener('click', () => {
-      this.close();
-      helpCommand(this.app, this.editor, this.settings, this.plugin);
-    });
+    const helpBtn = helpCard.createEl('button', { text: 'Get Help (H)', cls: 'mod-cta' });
+    helpBtn.addEventListener('click', () => this.chooseHelp());
 
     // ── Log ───────────────────────────────────────────────────────────────
     const logCard = grid.createDiv({ cls: 'll-option-card' });
@@ -51,11 +72,8 @@ class OptionsModal extends Modal {
     logCard.createEl('p', {
       text: "You've noticed a pattern or just solved something. The plugin will parse out the problem and solution and file it in your Problems folder.",
     });
-    const logBtn = logCard.createEl('button', { text: 'Log it', cls: 'mod-cta' });
-    logBtn.addEventListener('click', () => {
-      this.close();
-      logCommand(this.app, this.editor, this.settings);
-    });
+    const logBtn = logCard.createEl('button', { text: 'Log it (L)', cls: 'mod-cta' });
+    logBtn.addEventListener('click', () => this.chooseLog());
   }
 
   onClose() {

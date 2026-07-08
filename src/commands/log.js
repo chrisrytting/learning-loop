@@ -10,7 +10,11 @@
 const { parseLogEntry } = require('../ai/parseLogEntry');
 const { AiUsageCollector } = require('../ai/usageCollector');
 const { readProblemFiles, writeProblemLog } = require('../vault/problems');
-const { buildExecutionWikiLink, getLogExecutionRange } = require('../vault/executionLink');
+const { readThought, writeTrace } = require('../vault/trace');
+const {
+  buildExecutionWikiLink,
+  ensureExecutionBlockLink,
+} = require('../vault/executionLink');
 const { writeCommandUsageLog } = require('../vault/logs');
 const { LogConfirmModal } = require('../ui/LogConfirmModal');
 
@@ -20,14 +24,12 @@ const { LogConfirmModal } = require('../ui/LogConfirmModal');
  * @param {{ anthropicApiKey: string }} settings
  */
 async function logCommand(app, editor, settings) {
-  const selectedText = editor.getSelection();
-  const cursor = editor.getCursor();
-  const input = selectedText || editor.getLine(cursor.line);
+  const thought = readThought(editor);
+  const input = thought.text;
 
   if (!input.trim()) return;
 
   const file = app.workspace.getActiveFile();
-  const { fromLine } = getLogExecutionRange(editor);
   const executedAt = new Date();
   const collector = new AiUsageCollector();
 
@@ -35,7 +37,7 @@ async function logCommand(app, editor, settings) {
   const parsed = await parseLogEntry(input, problemFiles, settings, collector);
 
   if (collector.hasUsage()) {
-    const executionLink = buildExecutionWikiLink(app, file, fromLine);
+    const executionLink = buildExecutionWikiLink(app, file, thought.fromLine);
     writeCommandUsageLog(app, {
       command: 'log',
       executionLink,
@@ -46,10 +48,37 @@ async function logCommand(app, editor, settings) {
 
   const modal = new LogConfirmModal(app, parsed, async (confirmed) => {
     if (!confirmed) return;
-    await writeProblemLog(app, confirmed);
+    const instanceLink = ensureExecutionBlockLink(editor, file, thought.fromLine);
+    await writeProblemLog(app, { ...confirmed, instanceLink });
+    writeTrace(editor, {
+      fromLine: thought.fromLine,
+      toLine: thought.toLine,
+      ch0: thought.ch0,
+      ch1: editor.getLine(thought.toLine).length,
+      thought: withInstanceBlockId(thought.text, instanceLink),
+      relatedProblems: uniqueLinks([...(thought.relatedProblems || []), `[[${confirmed.problem}]]`]),
+      relatedSolutions: thought.relatedSolutions || [],
+      relatedSolutionEntries: thought.relatedSolutionEntries || [],
+    });
   });
 
   modal.open();
+}
+
+function withInstanceBlockId(text, instanceLink) {
+  const match = /#\^([^|\]]+)/.exec(instanceLink || '');
+  if (!match) return text;
+  const blockId = match[1];
+  if (new RegExp(`\\s\\^${escapeRegExp(blockId)}\\s*$`).test(text)) return text;
+  return `${text} ^${blockId}`;
+}
+
+function uniqueLinks(links) {
+  return [...new Set(links.filter(Boolean))];
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 module.exports = { logCommand };

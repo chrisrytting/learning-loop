@@ -26,9 +26,26 @@ whichever checkout is active and must end up pointing back at the main repo.
 
 ## Guiding principle
 
-Destroying a worktree and deleting a branch are **irreversible**. Every step
-that loses work (removing the worktree, deleting the branch) must be guarded by
-a check that the work is safe. When in doubt, stop and ask — never force.
+Invoking this skill is permission to perform the normal landing workflow end to
+end: create a safety branch if needed, commit the target worktree's feature
+changes, merge the branch into main, rebuild/test, repoint the Obsidian plugin
+symlink, remove the landed worktree, and delete the merged branch.
+
+The guardrails are for ambiguous or genuinely risky states, not for ordinary
+landing steps. Keep the flow moving unless one of these checks fails:
+
+- The target worktree is ambiguous.
+- The main worktree has uncommitted files.
+- The merge conflicts.
+- Tests or build fail after merge.
+- Git refuses to remove the worktree because it is not clean.
+- Git refuses `branch -d`, meaning the branch is not fully merged.
+
+Creating a branch to attach a detached HEAD and committing the target worktree's
+reviewed feature diff are preservative landing steps. Destructive force options
+are not authorized by this skill: never use `git reset --hard`, `git clean`,
+`worktree remove --force`, or `branch -D` unless the user explicitly asks after
+seeing the failure state.
 
 ## Step 0 — Identify the target
 
@@ -55,27 +72,30 @@ Run, from the main repo:
 git -C <worktree-path> status --porcelain
 git -C <worktree-path> symbolic-ref --quiet --short HEAD
 git -C <worktree-path> log main..HEAD --oneline
+git -C /Users/chrisrytting/code/learning-loop status --porcelain
 ```
 
 - **Detached HEAD:** this is normal for a Codex-managed worktree. Do not commit
-  while detached. If there is work to preserve, stop and ask permission to
-  create a branch, proposing a concise `codex/<name>` branch name. After the
-  user approves, create it in place with:
+  while detached. If there is work to preserve, create a branch automatically
+  using a concise `codex/<name>` branch name, then report the branch name in the
+  next update. The user's invocation of `land-worktree` is permission for this
+  safety branch creation. Create it in place with:
   `git -C <worktree-path> switch -c <branch>`.
-- **Uncommitted changes present:** stop and show the changed files. Ask whether
-  to commit them, proposing a concise message, or abort. Do not infer commit
-  permission from the request to land. After approval, stage only the reviewed
-  work and commit in the worktree, ending the message with:
+- **Uncommitted changes present in the target worktree:** show a concise status
+  summary in the progress update, then commit them automatically as part of the
+  landing flow. Stage only the target worktree's current diff and commit with a
+  concise feature-oriented message ending with:
   `Co-Authored-By: Codex Opus 4.8 <noreply@anthropic.com>`.
-- **Detached commits already ahead of main:** create the approved branch at the
+- **Detached commits already ahead of main:** create a safety branch at the
   current HEAD before doing anything else so those commits become durable.
-- **No commits ahead of main:** there's nothing to land. Confirm with the user
-  before proceeding, unless approved uncommitted changes still need to be
-  committed first.
+- **No commits ahead of main and no uncommitted target worktree changes:**
+  there's nothing to land. Stop and report that no landing action is needed.
+- **Main has uncommitted changes:** stop and report them. Do not merge into a
+  dirty main worktree.
 
-After any approved branch creation and commit, repeat all three safety checks.
-Continue only when the worktree is clean, HEAD is attached to the recorded
-branch, and at least one commit is ahead of main.
+After any branch creation and commit, repeat all safety checks. Continue only
+when the target worktree is clean, HEAD is attached to the recorded branch, at
+least one commit is ahead of main, and the main worktree is clean.
 
 ## Step 2 — Merge into main
 

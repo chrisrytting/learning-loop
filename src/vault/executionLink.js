@@ -27,6 +27,31 @@ function buildExecutionWikiLink(app, file, line) {
 }
 
 /**
+ * Ensure the source line has an Obsidian block id and return a link to it.
+ * This is used for durable problem-instance references: the problem page points
+ * back to the user's original note instead of copying its text.
+ *
+ * @param {import('obsidian').Editor} editor
+ * @param {import('obsidian').TFile | null} file
+ * @param {number} line
+ * @returns {string | null}
+ */
+function ensureExecutionBlockLink(editor, file, line) {
+  if (!file) return null;
+
+  const sourceLine = editor.getLine(line);
+  const existing = sourceLine.match(/\s+\^([a-zA-Z0-9-]+)\s*$/);
+  const blockId = existing ? existing[1] : Math.random().toString(36).slice(2, 8);
+
+  if (!existing) {
+    editor.replaceRange(` ^${blockId}`, { line, ch: sourceLine.length });
+  }
+
+  const linkpath = file.path.replace(/\.md$/i, '');
+  return `[[${linkpath}#^${blockId}|${file.basename}]]`;
+}
+
+/**
  * @param {import('obsidian').App} app
  * @param {import('obsidian').TFile} file
  * @param {number} line
@@ -61,4 +86,9 @@ function getLogExecutionRange(editor) {
   return { fromLine: cursor.line, toLine: cursor.line };
 }
 
-module.exports = { buildExecutionWikiLink, findBlockIdForLine, getLogExecutionRange };
+module.exports = {
+  buildExecutionWikiLink,
+  ensureExecutionBlockLink,
+  findBlockIdForLine,
+  getLogExecutionRange,
+};

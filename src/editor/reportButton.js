@@ -11,8 +11,8 @@
  *
  * A solution reference is a list item that links to a solution block, e.g.
  *   \t\t- [[Some Problem#^a1b2c3|the solution text]]
- * We detect any indented list item containing a block-ref wikilink, which is
- * exactly what writeTrace() emits under "Related Solutions".
+ * We detect indented block-ref links only when their list ancestor is
+ * "Related Solutions", so unrelated block references never receive a button.
  */
 
 const { ViewPlugin, Decoration, WidgetType } = require('@codemirror/view');
@@ -20,6 +20,7 @@ const { RangeSetBuilder } = require('@codemirror/state');
 const { Notice } = require('obsidian');
 const { ReportModal } = require('../ui/ReportModal');
 const { appendEvidenceToSolution } = require('../vault/problems');
+const { isUnderRelatedSolutions } = require('./reportButtonSections');
 
 // Indented list item ("- " / "* ") containing a [[Page#^id|label]] block link.
 // Captures: 1 indent, 2 page name, 3 solution block id, 4 display label.
@@ -105,7 +106,15 @@ function buildDecorations(app, view) {
     while (pos <= to) {
       const line = view.state.doc.lineAt(pos);
       const match = SOLUTION_LINE_RE.exec(line.text);
-      if (match && line.number !== activeLineNumber) {
+      if (
+        match
+        && isUnderRelatedSolutions(
+          number => view.state.doc.line(number).text,
+          line.number,
+          match[1].length,
+        )
+        && line.number !== activeLineNumber
+      ) {
         const [, indent, page, solutionBlockId, label] = match;
         builder.add(
           line.to,

@@ -33,6 +33,16 @@ with safety checks before anything irreversible.
 - `src/settings.js` — plugin settings tab
 - `src/main.js` — plugin entry point, command registration
 
+## UI philosophy: keyboard-first interaction
+Every modal and popover must be fully usable without reaching for the mouse. Mouse controls remain available, but the keyboard path should be the fastest and most obvious path.
+
+- Give each choice a memorable single-key shortcut when appropriate, and show the key in the visible label (for example, **Help (H)** and **Log (L)**).
+- `Enter` performs the modal's primary action; `Escape` cancels or closes without saving.
+- Do not hijack ordinary typing. Single-key shortcuts should be inactive while the user is editing an input, textarea, or contenteditable element. In multiline fields, preserve `Enter` for newlines and use `Mod+Enter` for the primary action.
+- Keep normal `Tab`/`Shift+Tab` focus order and ensure focused controls can be activated with `Enter` or `Space`.
+- Register shortcuts in the modal's scoped keymap so they are removed when the modal closes. Avoid document-global listeners unless the interaction cannot be scoped.
+- Add tests for shortcut mappings and for guards that prevent shortcuts from firing while the user is typing.
+
 ## AI provider
 Supports Anthropic (Codex) and Ollama (local). All AI calls go through `callAI(settings, prompt, maxTokens, collector)` in `src/ai/client.js`. Pass an `AiUsageCollector` instance as the fourth argument to track token usage and cost.
 
