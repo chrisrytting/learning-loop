@@ -507,9 +507,9 @@ async function ensureSolutionBlockId(app, pageName, solutionText) {
 
 /**
  * Append an evidence reference under the solution on `pageName` whose line
- * carries the Obsidian block id `solutionBlockId`. The reference is inserted as
- * a nested item right under the solution (and after any existing items), so it
- * lives in that solution's section. Returns true if written, false if the
+ * carries the Obsidian block id `solutionBlockId`. The reference is inserted
+ * immediately below the solution line itself, ahead of any earlier evidence,
+ * so reports read newest-first. Returns true if written, false if the
  * solution block couldn't be found.
  *
  * @param {import('obsidian').App} app
@@ -534,12 +534,7 @@ async function appendEvidenceToSolution(app, pageName, solutionBlockId, evidence
   }
   if (solIndex === -1) return false;
 
-  // Insert after the solution's existing nested items, before the next solution.
-  let insertIndex = lines.length;
-  for (let i = solIndex + 1; i < lines.length; i++) {
-    if (/^\t-\s+/.test(lines[i]) && !/^\t\t/.test(lines[i])) { insertIndex = i; break; }
-  }
-  lines.splice(insertIndex, 0, ...evidenceLines);
+  lines.splice(solIndex + 1, 0, ...evidenceLines);
   await app.vault.adapter.write(file.path, lines.join('\n'));
   return true;
 }

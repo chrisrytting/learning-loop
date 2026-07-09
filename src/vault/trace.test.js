@@ -75,7 +75,11 @@ describe('Learning Loop traces', () => {
       '\t\t- [[Stressed#^acm3rr|Talk to a friend]]',
       '\t\t\t- I think this went super well ^dxzh07',
       '\t\t- [[Stressed#^0uqy32|Body scan]]',
+      '',
     ].join('\n'));
+    // Cursor lands past the trace, not on the new solution's own line, so
+    // its Report button (which hides on the active line) is visible.
+    expect(editor.state.cursor).toEqual({ line: 8, ch: 0 });
   });
 
   test('updates an existing trace without inserting a duplicate header', () => {
@@ -100,8 +104,36 @@ describe('Learning Loop traces', () => {
       '\t\t- [[Stressed]]',
       '\t- Related Solutions',
       '\t\t- [[Stressed#^0uqy32|Body scan]]',
+      '',
     ].join('\n'));
     expect(editor.state.lines.filter(line => line.includes('[[Learning Loop Trace]]'))).toHaveLength(1);
+  });
+
+  test('does not grow the note with another blank line on a repeat edit', () => {
+    const editor = makeEditor([
+      '- [[Learning Loop Trace]]',
+      '\t- I\'m stressed',
+      '\t- Related Problems',
+      '\t\t- [[Stressed]]',
+      '',
+    ].join('\n'), 1);
+    const thought = readThought(editor);
+
+    writeTrace(editor, {
+      ...thought,
+      thought: thought.text,
+      relatedSolutions: ['[[Stressed#^0uqy32|Body scan]]'],
+    });
+
+    expect(editor.state.lines.join('\n')).toBe([
+      '- [[Learning Loop Trace]]',
+      '\t- I\'m stressed',
+      '\t- Related Problems',
+      '\t\t- [[Stressed]]',
+      '\t- Related Solutions',
+      '\t\t- [[Stressed#^0uqy32|Body scan]]',
+      '',
+    ].join('\n'));
   });
 
   test('still reads a normal list item as a new thought', () => {
