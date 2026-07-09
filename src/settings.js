@@ -11,6 +11,7 @@ const { FolderPickModal } = require('./ui/FolderPickModal');
 const { normalizeBasePath, valuesFilePath } = require('./vault/values');
 const { runSlackCheck } = require('./slack/scheduler');
 const { formatFireAt } = require('./reminders/reminders');
+const { DEFAULT_BRAINSTORM_ANTHROPIC_MODEL } = require('./ai/brainstormSolution');
 
 class LearningLoopSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
@@ -48,6 +49,17 @@ class LearningLoopSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.anthropicApiKey)
           .onChange(async (value) => {
             this.plugin.settings.anthropicApiKey = value.trim();
+            await this.plugin.saveSettings();
+          }));
+
+      new Setting(containerEl)
+        .setName('Brainstorming model')
+        .setDesc('Claude model used to turn brainstorm interview answers into candidate solutions.')
+        .addText(text => text
+          .setPlaceholder(DEFAULT_BRAINSTORM_ANTHROPIC_MODEL)
+          .setValue(this.plugin.settings.brainstormAnthropicModel || DEFAULT_BRAINSTORM_ANTHROPIC_MODEL)
+          .onChange(async (value) => {
+            this.plugin.settings.brainstormAnthropicModel = value.trim() || DEFAULT_BRAINSTORM_ANTHROPIC_MODEL;
             await this.plugin.saveSettings();
           }));
     }

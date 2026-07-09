@@ -22,10 +22,12 @@ const { registerBlockBacklinks } = require('./editor/blockBacklinks');
 const { registerReminders } = require('./reminders/reminders');
 const { OptionsModal } = require('./ui/OptionsModal');
 const { startSlackScheduler } = require('./slack/scheduler');
+const { DEFAULT_BRAINSTORM_ANTHROPIC_MODEL } = require('./ai/brainstormSolution');
 
 const DEFAULT_SETTINGS = {
   aiProvider: 'anthropic',
   anthropicApiKey: '',
+  brainstormAnthropicModel: DEFAULT_BRAINSTORM_ANTHROPIC_MODEL,
   ollamaBaseUrl: 'http://localhost:11434',
   ollamaModel: 'qwen3:latest',
   basePathFolder: '',

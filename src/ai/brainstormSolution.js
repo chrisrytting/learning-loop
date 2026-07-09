@@ -2,6 +2,8 @@
 
 const { callAI, extractJsonObject } = require('./client');
 
+const DEFAULT_BRAINSTORM_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+
 async function parseBrainstormSolution(problemText, question, answer, settings, collector = null) {
   const cleanAnswer = String(answer || '').trim();
   if (!cleanAnswer) return '';
@@ -27,7 +29,11 @@ async function parseBrainstormSolution(problemText, question, answer, settings, 
   ].join('\n');
 
   try {
-    const text = await callAI(settings, prompt, 180, collector);
+    const anthropicModel = String(settings?.brainstormAnthropicModel || '').trim()
+      || DEFAULT_BRAINSTORM_ANTHROPIC_MODEL;
+    const text = await callAI(settings, prompt, 180, collector, {
+      anthropicModel,
+    });
     const parsed = extractJsonObject(text);
     return typeof parsed.solution === 'string' ? parsed.solution.trim() : '';
   } catch {
@@ -43,4 +49,4 @@ function conciseFallback(text) {
     .trim();
 }
 
-module.exports = { parseBrainstormSolution, conciseFallback };
+module.exports = { parseBrainstormSolution, conciseFallback, DEFAULT_BRAINSTORM_ANTHROPIC_MODEL };

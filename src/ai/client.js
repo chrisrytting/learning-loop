@@ -6,8 +6,9 @@ const ANTHROPIC_MODEL = 'claude-haiku-4-5';
 const DEFAULT_OLLAMA_MODEL = 'qwen3:latest';
 const DEFAULT_OLLAMA_BASE_URL = 'http://localhost:11434';
 
-async function callClaude(apiKey, prompt, maxTokens = 400, collector = null) {
+async function callClaude(apiKey, prompt, maxTokens = 400, collector = null, model = ANTHROPIC_MODEL) {
   if (!apiKey) throw new Error('No Anthropic API key — add one in plugin settings.');
+  const modelName = String(model || '').trim() || ANTHROPIC_MODEL;
 
   const response = await requestUrl({
     url: 'https://api.anthropic.com/v1/messages',
@@ -18,7 +19,7 @@ async function callClaude(apiKey, prompt, maxTokens = 400, collector = null) {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
+      model: modelName,
       max_tokens: maxTokens,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -32,7 +33,7 @@ async function callClaude(apiKey, prompt, maxTokens = 400, collector = null) {
     collector.add({
       inputTokens: response.json?.usage?.input_tokens ?? 0,
       outputTokens: response.json?.usage?.output_tokens ?? 0,
-      model: ANTHROPIC_MODEL,
+      model: modelName,
     });
   }
 
@@ -64,11 +65,11 @@ async function callOllama(settings, prompt, maxTokens = 400) {
   return response.json?.choices?.[0]?.message?.content ?? '';
 }
 
-async function callAI(settings, prompt, maxTokens = 400, collector = null) {
+async function callAI(settings, prompt, maxTokens = 400, collector = null, options = {}) {
   if (settings?.aiProvider === 'ollama') {
     return callOllama(settings, prompt, maxTokens);
   }
-  return callClaude(settings?.anthropicApiKey, prompt, maxTokens, collector);
+  return callClaude(settings?.anthropicApiKey, prompt, maxTokens, collector, options.anthropicModel);
 }
 
 function stripThinking(text) {
