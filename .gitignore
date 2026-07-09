@@ -1,6 +1,8 @@
 node_modules/
 data.json
 
+.DS_Store
+
 # dev watcher (scripts/dev.sh) runtime files
 .dev-server.pid
 .dev-server.log
