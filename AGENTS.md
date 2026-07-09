@@ -8,22 +8,35 @@ An Obsidian plugin (JS/Node, built with esbuild) that helps users build a person
 - Entry point: `src/main.js` → compiled to `main.js` at repo root
 - Tests: `src/**/*.test.js` (Jest)
 - Obsidian vault used for development: `/Users/chrisrytting/Tiny Obsidian`
-- Plugin install location: `/Users/chrisrytting/Tiny Obsidian/.obsidian/plugins/learning-loop` (symlinked to whichever worktree is active)
+- Plugin install location: `/Users/chrisrytting/Tiny Obsidian/.obsidian/plugins/learning-loop` (a symlink the **human** repoints by hand to whichever worktree they want to test — agents never touch it; see Worktree workflow)
 
 ## Build & test
 ```bash
-npm run build   # compile src/ → main.js
+npm run build   # one-shot production compile src/ → main.js (do this before landing)
 npm test        # run Jest tests
 ```
-After building, reload the plugin in Obsidian (disable/re-enable) to pick up changes.
+After a one-shot build, reload the plugin in Obsidian (disable/re-enable) to pick up changes.
+
+## Local development (watch mode)
+For iterative work, **do not** run `npm run build` after every edit. Instead start the
+esbuild watcher once, at the outset of working in a worktree:
+```bash
+scripts/dev.sh   # idempotent: starts the watcher if one isn't already running here
+```
+This rebuilds `main.js` on every save in `src/`; the Hot Reload Obsidian plugin then
+reloads the plugin automatically. Run it in the worktree the vault symlink points at.
+`scripts/dev.sh stop` stops this worktree's watcher.
 
 ## Worktree workflow
-Feature work happens in git worktrees created under `.Codex/worktrees/`. The Obsidian plugin symlink points to whichever worktree is active so changes are immediately testable.
+Feature work happens in git worktrees created under `.Codex/worktrees/`.
+
+**The Obsidian plugin symlink (`/Users/chrisrytting/Tiny Obsidian/.obsidian/plugins/learning-loop`) is human-owned. Agents must NEVER repoint it.** There is exactly one plugin slot in the vault, and only the human decides which worktree is being tested at any moment. An agent silently repointing it breaks whatever branch the human is currently testing in Obsidian. Agents build and run Jest inside their own worktree (neither needs the symlink); the human repoints it by hand when they sit down to test a specific branch.
 
 **When merging a branch into main and cleaning up**, use the `land-worktree` skill
 (invoke `/land-worktree`) — it runs the whole sequence safely: merge → `npm run build`
-→ repoint the Obsidian symlink to main → remove the worktree → delete the branch,
-with safety checks before anything irreversible.
+→ remove the worktree → delete the branch, with safety checks before anything
+irreversible. It does **not** touch the symlink: if the symlink dangles into the
+removed worktree, the skill flags it in its summary and the human repoints it.
 
 ## Architecture
 - `src/ai/` — Codex/Ollama API calls, cost tracking, usage collection
