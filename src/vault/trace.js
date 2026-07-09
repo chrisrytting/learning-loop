@@ -187,9 +187,16 @@ function writeTrace(editor, traceData) {
     }
   }
 
+  const cursorLine = fromLine + lines.length;
+  // If the trace ends at the note's last line, there's no line below it for
+  // the cursor to land on — and the Report button hides on the active line,
+  // so it wouldn't show for the solution just added. Add a blank line so the
+  // cursor (and the button) land just past the trace instead.
+  if (toLine >= editor.lineCount() - 1) lines.push('');
+
   const insertion = lines.join('\n');
   editor.replaceRange(insertion, { line: fromLine, ch: 0 }, { line: toLine, ch: ch1 });
-  editor.setCursor({ line: fromLine + lines.length, ch: 0 });
+  editor.setCursor({ line: cursorLine, ch: 0 });
 }
 
 function stripListMarker(text) {
