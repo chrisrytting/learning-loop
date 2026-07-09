@@ -28,12 +28,12 @@ function registerModalShortcuts(scope, actions, options = {}) {
     if (isNativeActionControl(target)) return undefined;
     if (isMultiline(target)) return undefined;
     if (!enterInSingleLineInput && isInputLike(target)) return undefined;
-    actions.primary();
+    actions.primary(event);
     return false;
   });
 
-  scope.register(['Mod'], 'Enter', () => {
-    actions.primary();
+  scope.register(['Mod'], 'Enter', event => {
+    actions.primary(event);
     return false;
   });
 

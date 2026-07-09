@@ -38,7 +38,7 @@ class ReportModal extends Modal {
     });
 
     const textarea = contentEl.createEl('textarea', { cls: 'll-report-input' });
-    textarea.placeholder = 'e.g. Tried it on the deploy bug — fixed it in 5 minutes.';
+    textarea.placeholder = 'e.g. I tried this today and felt calmer after a few minutes.';
     textarea.rows = 4;
     window.setTimeout(() => textarea.focus(), 0);
 

@@ -43,6 +43,15 @@ Every modal and popover must be fully usable without reaching for the mouse. Mou
 - Register shortcuts in the modal's scoped keymap so they are removed when the modal closes. Avoid document-global listeners unless the interaction cannot be scoped.
 - Add tests for shortcut mappings and for guards that prevent shortcuts from firing while the user is typing.
 
+### UI completion checklist
+Before calling modal or popover UI work complete, verify:
+- Every primary or repeated action has a keyboard path.
+- The shortcut is shown in the visible button/control label.
+- Shortcuts are registered on the modal/popover scope, not document-global.
+- Shortcuts do not fire while typing in input, textarea, or contenteditable fields.
+- Multiline textareas keep `Enter` for newlines and use `Mod+Enter` for submit.
+- Tests cover the shortcut mapping and the typing guard.
+
 ## AI provider
 Supports Anthropic (Codex) and Ollama (local). All AI calls go through `callAI(settings, prompt, maxTokens, collector)` in `src/ai/client.js`. Pass an `AiUsageCollector` instance as the fourth argument to track token usage and cost.
 
