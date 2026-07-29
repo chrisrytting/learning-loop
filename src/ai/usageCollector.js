@@ -7,8 +7,17 @@
  */
 
 class AiUsageCollector {
-  constructor() {
-    /** @type {Array<{ inputTokens: number, outputTokens: number, model: string }>} */
+  constructor(options = {}) {
+    this.captureTranscripts = Boolean(options.captureTranscripts);
+    /** @type {Array<{
+     *   inputTokens: number,
+     *   outputTokens: number,
+     *   thinkingTokens?: number,
+     *   model: string,
+     *   purpose?: string,
+     *   prompt?: string,
+     *   response?: string,
+     * }>} */
     this.usages = [];
   }
 
@@ -16,7 +25,8 @@ class AiUsageCollector {
    * @param {{ inputTokens: number, outputTokens: number, model: string }} usage
    */
   add(usage) {
-    if (!usage || (!usage.inputTokens && !usage.outputTokens)) return;
+    const hasTranscript = typeof usage?.prompt === 'string' || typeof usage?.response === 'string';
+    if (!usage || (!usage.inputTokens && !usage.outputTokens && !hasTranscript)) return;
     this.usages.push(usage);
   }
 

@@ -1,6 +1,6 @@
 'use strict';
 
-const { readThought, writeTrace } = require('./trace');
+const { readThought, writeTrace, writeGuidanceTrace } = require('./trace');
 
 function makeEditor(content, cursorLine) {
   const state = { lines: content.split('\n'), cursor: { line: cursorLine, ch: 0 } };
@@ -145,5 +145,35 @@ describe('Learning Loop traces', () => {
       ch0: 0,
       ch1: 18,
     });
+  });
+
+  test('writes project guidance as a normal Learning Loop trace', () => {
+    const editor = makeEditor('What should I do next?', 0);
+    const thought = readThought(editor);
+
+    writeGuidanceTrace(editor, {
+      ...thought,
+      thought: thought.text,
+      heading: 'Alpine+ Guidance',
+      relatedPages: ['[[Alpine+ structure/Roadmap|Alpine+ Roadmap]]'],
+      recommendation: 'Film one small, story-rich pilot project.',
+      sections: [
+        { heading: 'Principles to apply', items: ['Hooks: promise a concrete payoff.'] },
+      ],
+    });
+
+    expect(editor.state.lines.join('\n')).toBe([
+      '- [[Learning Loop Trace]]',
+      '\t- What should I do next?',
+      '\t- Related Pages',
+      '\t\t- [[Alpine+ structure/Roadmap|Alpine+ Roadmap]]',
+      '\t- Alpine+ Guidance',
+      '\t\t- Film one small, story-rich pilot project.',
+      '\t\t- Principles to apply',
+      '\t\t\t- Hooks: promise a concrete payoff.',
+      '',
+    ].join('\n'));
+    editor.state.cursor = { line: 1, ch: 0 };
+    expect(readThought(editor).text).toBe('What should I do next?');
   });
 });

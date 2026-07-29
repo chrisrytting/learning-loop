@@ -12,17 +12,28 @@ const MODEL_RATES_USD_PER_MTOK = {
   'claude-opus-4-8':           { input: 5,  output: 25 },
   'claude-opus-4-7':           { input: 5,  output: 25 },
   'claude-opus-4-6':           { input: 5,  output: 25 },
+  'claude-sonnet-5':           { input: 3,  output: 15 },
   'claude-sonnet-4-6':         { input: 3,  output: 15 },
   'claude-haiku-4-5':          { input: 1,  output: 5  },
   'claude-haiku-4-5-20251001': { input: 1,  output: 5  },
 };
 
+const SONNET_5_INTRO_RATES_USD_PER_MTOK = { input: 2, output: 10 };
+const SONNET_5_INTRO_END = new Date('2026-09-01T00:00:00Z');
+
+function modelRatesAt(model, date = new Date()) {
+  if (model === 'claude-sonnet-5' && new Date(date) < SONNET_5_INTRO_END) {
+    return SONNET_5_INTRO_RATES_USD_PER_MTOK;
+  }
+  return MODEL_RATES_USD_PER_MTOK[model];
+}
+
 /**
  * @param {{ inputTokens: number, outputTokens: number, model: string }} usage
  * @returns {number}
  */
-function computeCostUsd(usage) {
-  const rates = MODEL_RATES_USD_PER_MTOK[usage.model];
+function computeCostUsd(usage, date = new Date()) {
+  const rates = modelRatesAt(usage.model, date);
   if (!rates) return 0;
   const input = (usage.inputTokens / 1_000_000) * rates.input;
   const output = (usage.outputTokens / 1_000_000) * rates.output;
@@ -33,17 +44,23 @@ function computeCostUsd(usage) {
  * @param {Array<{ inputTokens: number, outputTokens: number, model: string }>} usages
  * @returns {Array<{ model: string, inputTokens: number, outputTokens: number, costUsd: number }>}
  */
-function aggregateByModel(usages) {
+function aggregateByModel(usages, date = new Date()) {
   const byModel = new Map();
   for (const u of usages) {
-    const prev = byModel.get(u.model) ?? { model: u.model, inputTokens: 0, outputTokens: 0 };
+    const prev = byModel.get(u.model) ?? {
+      model: u.model,
+      inputTokens: 0,
+      outputTokens: 0,
+      thinkingTokens: 0,
+    };
     prev.inputTokens += u.inputTokens;
     prev.outputTokens += u.outputTokens;
+    prev.thinkingTokens += u.thinkingTokens ?? 0;
     byModel.set(u.model, prev);
   }
   return [...byModel.values()].map(row => ({
     ...row,
-    costUsd: computeCostUsd(row),
+    costUsd: computeCostUsd(row, date),
   }));
 }
 
@@ -54,8 +71,17 @@ function aggregateByModel(usages) {
 function formatModelUsageSegment(rows) {
   return rows.map(r => {
     const usd = r.costUsd < 0.0001 ? r.costUsd.toExponential(2) : r.costUsd.toFixed(5);
-    return `${r.model} in=${r.inputTokens} out=${r.outputTokens} usd=${usd}`;
+    const thinking = r.thinkingTokens ? ` think=${r.thinkingTokens}` : '';
+    return `${r.model} in=${r.inputTokens} out=${r.outputTokens}${thinking} usd=${usd}`;
   }).join('; ');
 }
 
-module.exports = { computeCostUsd, aggregateByModel, formatModelUsageSegment, MODEL_RATES_USD_PER_MTOK };
+module.exports = {
+  computeCostUsd,
+  aggregateByModel,
+  formatModelUsageSegment,
+  modelRatesAt,
+  MODEL_RATES_USD_PER_MTOK,
+  SONNET_5_INTRO_RATES_USD_PER_MTOK,
+  SONNET_5_INTRO_END,
+};

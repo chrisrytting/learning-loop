@@ -53,7 +53,9 @@ async function compareToValues(actionText, values, settings) {
   ].join('\n');
 
   try {
-    const text = await callAI(settings, prompt, 300);
+    const text = await callAI(settings, prompt, 300, null, {
+      purpose: 'Compare action to values',
+    });
     const parsed = extractJsonObject(text);
     const alignmentScore = Math.round(Number(parsed.alignmentScore));
     const rationale = typeof parsed.rationale === 'string' ? parsed.rationale.trim() : '';

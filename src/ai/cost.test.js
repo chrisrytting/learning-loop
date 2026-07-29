@@ -20,6 +20,22 @@ describe('computeCostUsd', () => {
     expect(cost).toBeCloseTo(30);
   });
 
+  test('uses introductory Sonnet 5 pricing through August 2026', () => {
+    const cost = computeCostUsd(
+      { model: 'claude-sonnet-5', inputTokens: 1_000_000, outputTokens: 1_000_000 },
+      new Date('2026-07-21T12:00:00Z'),
+    );
+    expect(cost).toBeCloseTo(12);
+  });
+
+  test('uses standard Sonnet 5 pricing after the introductory period', () => {
+    const cost = computeCostUsd(
+      { model: 'claude-sonnet-5', inputTokens: 1_000_000, outputTokens: 1_000_000 },
+      new Date('2026-09-01T00:00:00Z'),
+    );
+    expect(cost).toBeCloseTo(18);
+  });
+
   test('returns 0 for unknown model', () => {
     expect(computeCostUsd({ model: 'unknown', inputTokens: 1000, outputTokens: 500 })).toBe(0);
   });
@@ -54,12 +70,13 @@ describe('aggregateByModel', () => {
 
   test('sums tokens for the same model', () => {
     const result = aggregateByModel([
-      { model: 'claude-haiku-4-5', inputTokens: 100, outputTokens: 50 },
-      { model: 'claude-haiku-4-5', inputTokens: 200, outputTokens: 100 },
+      { model: 'claude-haiku-4-5', inputTokens: 100, outputTokens: 50, thinkingTokens: 20 },
+      { model: 'claude-haiku-4-5', inputTokens: 200, outputTokens: 100, thinkingTokens: 30 },
     ]);
     expect(result).toHaveLength(1);
     expect(result[0].inputTokens).toBe(300);
     expect(result[0].outputTokens).toBe(150);
+    expect(result[0].thinkingTokens).toBe(50);
     expect(result[0].costUsd).toBeGreaterThan(0);
   });
 
@@ -84,11 +101,12 @@ describe('aggregateByModel', () => {
 
 describe('formatModelUsageSegment', () => {
   test('formats a single row', () => {
-    const rows = [{ model: 'claude-haiku-4-5', inputTokens: 100, outputTokens: 50, costUsd: 0.5 }];
+    const rows = [{ model: 'claude-haiku-4-5', inputTokens: 100, outputTokens: 50, thinkingTokens: 20, costUsd: 0.5 }];
     const result = formatModelUsageSegment(rows);
     expect(result).toContain('claude-haiku-4-5');
     expect(result).toContain('in=100');
     expect(result).toContain('out=50');
+    expect(result).toContain('think=20');
     expect(result).toContain('usd=0.50000');
   });
 

@@ -31,7 +31,9 @@ async function logCommand(app, editor, settings) {
 
   const file = app.workspace.getActiveFile();
   const executedAt = new Date();
-  const collector = new AiUsageCollector();
+  const collector = new AiUsageCollector({
+    captureTranscripts: settings?.logAiTranscripts,
+  });
 
   const problemFiles = await readProblemFiles(app);
   const parsed = await parseLogEntry(input, problemFiles, settings, collector);

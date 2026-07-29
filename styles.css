@@ -590,3 +590,71 @@
   gap: 8px;
   margin-top: 12px;
 }
+
+/* ─── Project guide ──────────────────────────────────────────────────────── */
+.ll-project-guide-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.ll-project-guide-modal h2,
+.ll-project-guide-modal h3,
+.ll-project-guide-modal p,
+.ll-project-guide-modal ul {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.ll-project-guide-cue,
+.ll-project-guide-task {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ll-project-guide-cue { resize: vertical; }
+
+.ll-project-guide-examples {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.ll-project-guide-answer {
+  font-size: var(--font-ui-medium);
+  line-height: 1.55;
+}
+
+.ll-project-guide-section,
+.ll-project-guide-proposal {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+}
+
+.ll-project-guide-section h3,
+.ll-project-guide-proposal h3 {
+  font-size: var(--font-ui-medium);
+}
+
+.ll-project-guide-section ul { padding-left: 20px; }
+
+.ll-project-guide-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.ll-project-page-list button {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-accent);
+  padding: 2px 0;
+}

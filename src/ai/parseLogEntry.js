@@ -52,7 +52,9 @@ async function parseLogEntry(input, problemFiles, settings, collector = null) {
   ].join('\n');
 
   try {
-    const text = await callAI(settings, prompt, 400, collector);
+    const text = await callAI(settings, prompt, 400, collector, {
+      purpose: 'Log: parse problem and solutions',
+    });
     const parsed = extractJsonObject(text);
     const problem = typeof (parsed.newProblem ?? parsed.problem) === 'string'
       ? titleCase(parsed.newProblem ?? parsed.problem)

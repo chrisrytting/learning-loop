@@ -43,7 +43,9 @@ async function searchProblems(cueText, queryIndex, excludeNames, settings, colle
   ].join('\n');
 
   try {
-    const text = await callAI(settings, prompt, 256, collector);
+    const text = await callAI(settings, prompt, 256, collector, {
+      purpose: 'Help: search problem pages',
+    });
     const parsed = extractJsonArray(text);
 
     const validNames = new Set(queryIndex.map(e => e.page));

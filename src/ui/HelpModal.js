@@ -45,7 +45,9 @@ class HelpModal extends Modal {
     this.thought = thought;
     this.plugin = plugin;
 
-    this.usageCollector = new AiUsageCollector();
+    this.usageCollector = new AiUsageCollector({
+      captureTranscripts: settings?.logAiTranscripts,
+    });
     this.executedAt = new Date();
 
     // References the user has chosen to insert, keyed by a stable id so the ＋

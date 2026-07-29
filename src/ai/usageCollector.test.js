@@ -9,6 +9,11 @@ describe('AiUsageCollector', () => {
     expect(c.hasUsage()).toBe(false);
   });
 
+  test('keeps transcript capture off unless explicitly enabled', () => {
+    expect(new AiUsageCollector().captureTranscripts).toBe(false);
+    expect(new AiUsageCollector({ captureTranscripts: true }).captureTranscripts).toBe(true);
+  });
+
   test('adds valid usage', () => {
     const c = new AiUsageCollector();
     c.add({ inputTokens: 100, outputTokens: 50, model: 'claude-haiku-4-5' });
@@ -26,6 +31,18 @@ describe('AiUsageCollector', () => {
     const c = new AiUsageCollector();
     c.add({ inputTokens: 0, outputTokens: 0, model: 'claude-haiku-4-5' });
     expect(c.usages).toHaveLength(0);
+  });
+
+  test('keeps a transcript even when a local provider omits token counts', () => {
+    const c = new AiUsageCollector({ captureTranscripts: true });
+    c.add({
+      inputTokens: 0,
+      outputTokens: 0,
+      model: 'local-model',
+      prompt: 'prompt',
+      response: 'response',
+    });
+    expect(c.usages).toHaveLength(1);
   });
 
   test('entry with only inputTokens is kept', () => {

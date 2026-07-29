@@ -33,6 +33,7 @@ async function parseBrainstormSolution(problemText, question, answer, settings, 
       || DEFAULT_BRAINSTORM_ANTHROPIC_MODEL;
     const text = await callAI(settings, prompt, 180, collector, {
       anthropicModel,
+      purpose: 'Help: parse brainstorm candidate',
     });
     const parsed = extractJsonObject(text);
     return typeof parsed.solution === 'string' ? parsed.solution.trim() : '';

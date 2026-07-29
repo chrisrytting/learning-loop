@@ -47,7 +47,9 @@ async function identifyProblem(utterance, existingNames, settings, collector = n
   ].join('\n');
 
   try {
-    const text = await callAI(settings, prompt, 512, collector);
+    const text = await callAI(settings, prompt, 512, collector, {
+      purpose: 'Identify problems',
+    });
     const parsed = extractJsonObject(text);
 
     const raw = Array.isArray(parsed.problems) ? parsed.problems : [];

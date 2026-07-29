@@ -10,7 +10,7 @@
  * Logs/Overview.base provides an Obsidian Bases table view over the directory.
  */
 
-const { aggregateByModel, formatModelUsageSegment } = require('../ai/cost');
+const { aggregateByModel, computeCostUsd, formatModelUsageSegment } = require('../ai/cost');
 
 const LOGS_DIR = 'Logs';
 const LOGS_BASE_PATH = `${LOGS_DIR}/Overview.base`;
@@ -82,7 +82,7 @@ async function writeCommandUsageLog(app, entry) {
   ];
 
   if (hasUsage) {
-    const rows = aggregateByModel(entry.usages);
+    const rows = aggregateByModel(entry.usages, ts);
     const totalCost = rows.reduce((sum, r) => sum + r.costUsd, 0);
     fmLines.push(`cost_usd: ${totalCost}`);
     fmLines.push(`usage_detail: "${formatModelUsageSegment(rows)}"`);
@@ -94,17 +94,75 @@ async function writeCommandUsageLog(app, entry) {
 
   fmLines.push('---', '');
 
-  const body = hasTrajectory
-    ? entry.trajectoryEntries.map(e => `- ${e}`).join('\n') + '\n'
-    : '';
+  const bodySections = [];
+  if (hasTrajectory) {
+    bodySections.push(
+      '## Trajectory',
+      '',
+      entry.trajectoryEntries.map(e => `- ${e}`).join('\n'),
+    );
+  }
+  if (hasUsage) {
+    bodySections.push(
+      '## AI calls',
+      '',
+      entry.usages.map((usage, index) => formatAiCallAudit(usage, index, ts)).join('\n\n'),
+    );
+  }
+  const body = bodySections.length ? `${bodySections.join('\n\n')}\n` : '';
 
   const filename = `${LOGS_DIR}/${formatFilenameTimestamp(ts)}-${entry.command}.md`;
   await adapter.write(filename, fmLines.join('\n') + body);
+}
+
+function formatAiCallAudit(usage, index, timestamp) {
+  const purpose = String(usage.purpose || 'AI request').replace(/\s+/g, ' ').trim();
+  const thinkingTokens = Number(usage.thinkingTokens || 0);
+  const visibleOutputTokens = Math.max(0, Number(usage.outputTokens || 0) - thinkingTokens);
+  const cost = computeCostUsd(usage, timestamp);
+  const costText = cost < 0.0001 ? cost.toExponential(2) : cost.toFixed(6);
+  const lines = [
+    `### Call ${index + 1}: ${purpose}`,
+    '',
+    `- Model: \`${usage.model}\``,
+    `- Input tokens: ${usage.inputTokens || 0}`,
+    `- Output tokens: ${usage.outputTokens || 0}`,
+    `- Thinking tokens: ${thinkingTokens}`,
+    `- Approximate visible-output tokens: ${visibleOutputTokens}`,
+    `- Estimated cost: $${costText}`,
+  ];
+
+  if (typeof usage.prompt !== 'string' && typeof usage.response !== 'string') {
+    lines.push('- Raw transcript: not captured (enable “Log raw AI prompts and responses” in Learning Loop settings)');
+    return lines.join('\n');
+  }
+
+  lines.push(
+    '- Raw transcript: captured',
+    '',
+    '#### Prompt',
+    '',
+    fencedText(usage.prompt || ''),
+    '',
+    '#### Response',
+    '',
+    fencedText(usage.response || ''),
+  );
+  return lines.join('\n');
+}
+
+function fencedText(value) {
+  const text = String(value || '');
+  const longest = Math.max(0, ...((text.match(/`+/g) || []).map(run => run.length)));
+  const fence = '`'.repeat(Math.max(3, longest + 1));
+  return `${fence}text\n${text}\n${fence}`;
 }
 
 module.exports = {
   LOGS_DIR,
   LOGS_BASE_PATH,
   formatTimestamp,
+  formatAiCallAudit,
+  fencedText,
   writeCommandUsageLog,
 };

@@ -187,6 +187,45 @@ function writeTrace(editor, traceData) {
     }
   }
 
+  replaceTraceRange(editor, { fromLine, toLine, ch1 }, lines);
+}
+
+/**
+ * Write project or other structured guidance into the same compact Learning
+ * Loop Trace container used by Help. The guidance stays human-readable in the
+ * note and can be replaced by rerunning a command from anywhere in the trace.
+ */
+function writeGuidanceTrace(editor, traceData) {
+  const {
+    fromLine,
+    toLine,
+    ch1,
+    thought,
+    heading = 'Guidance',
+    relatedPages = [],
+    recommendation = '',
+    sections = [],
+  } = traceData;
+  const clean = value => String(value || '').replace(/\s*\n+\s*/g, ' ').trim();
+  const lines = ['- [[Learning Loop Trace]]'];
+  if (clean(thought)) lines.push(`\t- ${clean(thought)}`);
+  if (relatedPages.length) {
+    lines.push('\t- Related Pages');
+    for (const page of relatedPages.map(clean).filter(Boolean)) lines.push(`\t\t- ${page}`);
+  }
+  lines.push(`\t- ${clean(heading) || 'Guidance'}`);
+  if (clean(recommendation)) lines.push(`\t\t- ${clean(recommendation)}`);
+  for (const section of sections) {
+    const items = (section.items || []).map(clean).filter(Boolean);
+    if (!items.length) continue;
+    lines.push(`\t\t- ${clean(section.heading)}`);
+    for (const item of items) lines.push(`\t\t\t- ${item}`);
+  }
+  replaceTraceRange(editor, { fromLine, toLine, ch1 }, lines);
+}
+
+function replaceTraceRange(editor, range, lines) {
+  const { fromLine, toLine, ch1 } = range;
   const cursorLine = fromLine + lines.length;
   // If the trace ends at the note's last line, there's no line below it for
   // the cursor to land on — and the Report button hides on the active line,
@@ -203,4 +242,4 @@ function stripListMarker(text) {
   return text.replace(/^[\s\t]*[-*]?\s*/, '').trim();
 }
 
-module.exports = { readThought, writeTrace };
+module.exports = { readThought, writeTrace, writeGuidanceTrace };

@@ -36,7 +36,7 @@ test('uses the configured brainstorming Anthropic model override', async () => {
     expect.any(String),
     180,
     null,
-    { anthropicModel: 'claude-opus-4-8' },
+    { anthropicModel: 'claude-opus-4-8', purpose: 'Help: parse brainstorm candidate' },
   );
 });
 
@@ -55,7 +55,10 @@ test('defaults brainstorming Anthropic calls to the stronger configured default'
     expect.any(String),
     180,
     null,
-    { anthropicModel: DEFAULT_BRAINSTORM_ANTHROPIC_MODEL },
+    {
+      anthropicModel: DEFAULT_BRAINSTORM_ANTHROPIC_MODEL,
+      purpose: 'Help: parse brainstorm candidate',
+    },
   );
 });
 
@@ -74,7 +77,10 @@ test('uses the brainstorming default when the configured model is blank', async 
     expect.any(String),
     180,
     null,
-    { anthropicModel: DEFAULT_BRAINSTORM_ANTHROPIC_MODEL },
+    {
+      anthropicModel: DEFAULT_BRAINSTORM_ANTHROPIC_MODEL,
+      purpose: 'Help: parse brainstorm candidate',
+    },
   );
 });
 

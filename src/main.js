@@ -16,6 +16,7 @@ const { parseToJsonCommand } = require('./commands/parseToJson');
 const { parseToMarkdownCommand } = require('./commands/parseToMarkdown');
 const { switchWorktreeCommand } = require('./commands/switchWorktree');
 const { addPagesCommand } = require('./commands/addPages');
+const { alpinePlusCommand } = require('./commands/alpinePlus');
 const { registerSmartOpenRight } = require('./commands/smartOpenRight');
 const { reportButtonExtension } = require('./editor/reportButton');
 const { registerBlockBacklinks } = require('./editor/blockBacklinks');
@@ -23,11 +24,13 @@ const { registerReminders } = require('./reminders/reminders');
 const { OptionsModal } = require('./ui/OptionsModal');
 const { startSlackScheduler } = require('./slack/scheduler');
 const { DEFAULT_BRAINSTORM_ANTHROPIC_MODEL } = require('./ai/brainstormSolution');
+const { DEFAULT_PROJECT_GUIDE_ANTHROPIC_MODEL } = require('./ai/projectGuide');
 
 const DEFAULT_SETTINGS = {
   aiProvider: 'anthropic',
   anthropicApiKey: '',
   brainstormAnthropicModel: DEFAULT_BRAINSTORM_ANTHROPIC_MODEL,
+  projectGuideAnthropicModel: DEFAULT_PROJECT_GUIDE_ANTHROPIC_MODEL,
   ollamaBaseUrl: 'http://localhost:11434',
   ollamaModel: 'qwen3:latest',
   basePathFolder: '',
@@ -36,6 +39,7 @@ const DEFAULT_SETTINGS = {
   slackCheckIntervalMinutes: 30,
   slackLastTs: '',
   enableAiCache: false,
+  logAiTranscripts: false,
   aiCache: {},
   reminders: [],
 };
@@ -93,6 +97,12 @@ class LearningLoopPlugin extends Plugin {
       id: 'add-pages',
       name: 'Add pages',
       editorCallback: (editor) => addPagesCommand(this.app, editor),
+    });
+
+    this.addCommand({
+      id: 'alpine-plus',
+      name: 'Alpine+ Guide',
+      editorCallback: (editor) => alpinePlusCommand(this.app, editor, this.settings),
     });
 
     this.addCommand({

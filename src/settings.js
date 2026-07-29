@@ -12,6 +12,10 @@ const { normalizeBasePath, valuesFilePath } = require('./vault/values');
 const { runSlackCheck } = require('./slack/scheduler');
 const { formatFireAt } = require('./reminders/reminders');
 const { DEFAULT_BRAINSTORM_ANTHROPIC_MODEL } = require('./ai/brainstormSolution');
+const {
+  DEFAULT_PROJECT_GUIDE_ANTHROPIC_MODEL,
+  PROJECT_GUIDE_ANTHROPIC_MODELS,
+} = require('./ai/projectGuide');
 
 class LearningLoopSettingTab extends PluginSettingTab {
   constructor(app, plugin) {
@@ -62,6 +66,21 @@ class LearningLoopSettingTab extends PluginSettingTab {
             this.plugin.settings.brainstormAnthropicModel = value.trim() || DEFAULT_BRAINSTORM_ANTHROPIC_MODEL;
             await this.plugin.saveSettings();
           }));
+
+      new Setting(containerEl)
+        .setName('Project Guide model')
+        .setDesc('Claude model used to create project pages and answer project-guide cues such as Alpine+.')
+        .addDropdown(drop => {
+          for (const model of PROJECT_GUIDE_ANTHROPIC_MODELS) {
+            drop.addOption(model.id, model.label);
+          }
+          return drop
+            .setValue(this.plugin.settings.projectGuideAnthropicModel || DEFAULT_PROJECT_GUIDE_ANTHROPIC_MODEL)
+            .onChange(async (value) => {
+              this.plugin.settings.projectGuideAnthropicModel = value || DEFAULT_PROJECT_GUIDE_ANTHROPIC_MODEL;
+              await this.plugin.saveSettings();
+            });
+        });
     }
 
     if (this.plugin.settings.aiProvider === 'ollama') {
@@ -224,6 +243,16 @@ class LearningLoopSettingTab extends PluginSettingTab {
 
     // ── Dev ──────────────────────────────────────────────────────────────────
     containerEl.createEl('h2', { text: 'Dev' });
+
+    new Setting(containerEl)
+      .setName('Log raw AI prompts and responses')
+      .setDesc('Off by default. When enabled, command logs include the full prompt and text response for every AI call. Prompts may contain private vault content and can make Logs files large.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.logAiTranscripts ?? false)
+        .onChange(async (value) => {
+          this.plugin.settings.logAiTranscripts = value;
+          await this.plugin.saveSettings();
+        }));
 
     new Setting(containerEl)
       .setName('Cache AI responses')
