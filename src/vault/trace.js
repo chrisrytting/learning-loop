@@ -94,25 +94,36 @@ function readExistingTrace(editor, cursorLine) {
     for (let candidate = line + 1; candidate <= endLine; candidate += 1) {
       const item = parseListItem(editor.getLine(candidate));
       if (!item) continue;
+      const heading = stripBold(item.text);
 
-      if (item.text === 'Related Problems') {
+      if (heading === 'Cue') {
+        section = { name: 'cue', indent: item.indent };
+      } else if (heading === 'Related Problems') {
         section = { name: 'relatedProblems', indent: item.indent, itemIndent: null };
-      } else if (item.text === 'Related Solutions') {
+      } else if (heading === 'Related Solutions') {
         section = { name: 'relatedSolutions', indent: item.indent, itemIndent: null, currentEntry: null };
+      } else if (heading === 'Related Pages' || heading.endsWith(' Guidance')) {
+        // Structured-guidance sections are not part of the cue that should be
+        // restored when the command is rerun from inside an existing trace.
+        section = { name: 'guidance', indent: item.indent };
       } else if (section && item.indent > section.indent) {
-        if (section.itemIndent === null) section.itemIndent = item.indent;
+        if (section.name === 'cue') {
+          if (!trace.text) trace.text = item.text;
+        } else if (section.name !== 'guidance') {
+          if (section.itemIndent === null) section.itemIndent = item.indent;
 
-        if (item.indent === section.itemIndent) {
-          trace[section.name].push(item.text);
-          if (section.name === 'relatedSolutions') {
-            section.currentEntry = { link: item.text, children: [] };
-            trace.relatedSolutionEntries.push(section.currentEntry);
+          if (item.indent === section.itemIndent) {
+            trace[section.name].push(item.text);
+            if (section.name === 'relatedSolutions') {
+              section.currentEntry = { link: item.text, children: [] };
+              trace.relatedSolutionEntries.push(section.currentEntry);
+            }
+          } else if (section.name === 'relatedSolutions' && section.currentEntry) {
+            section.currentEntry.children.push({
+              depth: Math.max(1, Math.ceil((item.indent - section.itemIndent) / 4)),
+              text: item.text,
+            });
           }
-        } else if (section.name === 'relatedSolutions' && section.currentEntry) {
-          section.currentEntry.children.push({
-            depth: Math.max(1, Math.ceil((item.indent - section.itemIndent) / 4)),
-            text: item.text,
-          });
         }
       } else {
         section = null;
@@ -133,6 +144,11 @@ function parseListItem(line) {
 
 function indentationWidth(whitespace) {
   return [...whitespace].reduce((width, char) => width + (char === '\t' ? 4 : 1), 0);
+}
+
+function stripBold(text) {
+  const match = /^\*\*(.+)\*\*$/.exec(text);
+  return match ? match[1].trim() : text;
 }
 
 /**
@@ -208,12 +224,13 @@ function writeGuidanceTrace(editor, traceData) {
   } = traceData;
   const clean = value => String(value || '').replace(/\s*\n+\s*/g, ' ').trim();
   const lines = ['- [[Learning Loop Trace]]'];
-  if (clean(thought)) lines.push(`\t- ${clean(thought)}`);
+  lines.push('\t- **Cue**');
+  if (clean(thought)) lines.push(`\t\t- ${clean(thought)}`);
   if (relatedPages.length) {
-    lines.push('\t- Related Pages');
+    lines.push('\t- **Related Pages**');
     for (const page of relatedPages.map(clean).filter(Boolean)) lines.push(`\t\t- ${page}`);
   }
-  lines.push(`\t- ${clean(heading) || 'Guidance'}`);
+  lines.push(`\t- **${stripBold(clean(heading) || 'Guidance')}**`);
   if (clean(recommendation)) lines.push(`\t\t- ${clean(recommendation)}`);
   for (const section of sections) {
     const items = (section.items || []).map(clean).filter(Boolean);

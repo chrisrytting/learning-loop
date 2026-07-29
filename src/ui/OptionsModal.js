@@ -3,13 +3,14 @@
 /**
  * ui/OptionsModal.js
  *
- * Top-level entry point modal. Shows the two commands as large buttons with
+ * Top-level entry point modal. Shows the primary commands as large buttons with
  * short descriptions so new users know what each one does before picking.
  */
 
 const { Modal } = require('obsidian');
 const { helpCommand } = require('../commands/help');
 const { logCommand } = require('../commands/log');
+const { alpinePlusCommand } = require('../commands/alpinePlus');
 const { registerOptionsShortcuts } = require('./optionsShortcuts');
 const { getEditorPromptText } = require('./promptText');
 
@@ -36,6 +37,11 @@ class OptionsModal extends Modal {
     logCommand(this.app, this.editor, this.settings);
   }
 
+  chooseAlpinePlus() {
+    this.close();
+    alpinePlusCommand(this.app, this.editor, this.settings);
+  }
+
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
@@ -47,6 +53,7 @@ class OptionsModal extends Modal {
     registerOptionsShortcuts(this.scope, {
       help: () => this.chooseHelp(),
       log: () => this.chooseLog(),
+      alpinePlus: () => this.chooseAlpinePlus(),
     });
 
     contentEl.createEl('h2', { text: 'Learning Loop' });
@@ -74,6 +81,18 @@ class OptionsModal extends Modal {
     });
     const logBtn = logCard.createEl('button', { text: 'Log it (L)', cls: 'mod-cta' });
     logBtn.addEventListener('click', () => this.chooseLog());
+
+    // ── Alpine+ ───────────────────────────────────────────────────────────
+    const alpinePlusCard = grid.createDiv({ cls: 'll-option-card' });
+    alpinePlusCard.createEl('h3', { text: 'Alpine+' });
+    alpinePlusCard.createEl('p', {
+      text: 'Ask the Alpine+ project guide what to do next, using your Goal, Roadmap, and Principles pages for context.',
+    });
+    const alpinePlusBtn = alpinePlusCard.createEl('button', {
+      text: 'Open Alpine+ (A)',
+      cls: 'mod-cta',
+    });
+    alpinePlusBtn.addEventListener('click', () => this.chooseAlpinePlus());
   }
 
   onClose() {

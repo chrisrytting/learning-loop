@@ -164,16 +164,17 @@ describe('Learning Loop traces', () => {
 
     expect(editor.state.lines.join('\n')).toBe([
       '- [[Learning Loop Trace]]',
-      '\t- What should I do next?',
-      '\t- Related Pages',
+      '\t- **Cue**',
+      '\t\t- What should I do next?',
+      '\t- **Related Pages**',
       '\t\t- [[Alpine+ structure/Roadmap|Alpine+ Roadmap]]',
-      '\t- Alpine+ Guidance',
+      '\t- **Alpine+ Guidance**',
       '\t\t- Film one small, story-rich pilot project.',
       '\t\t- Principles to apply',
       '\t\t\t- Hooks: promise a concrete payoff.',
       '',
     ].join('\n'));
-    editor.state.cursor = { line: 1, ch: 0 };
+    editor.state.cursor = { line: 7, ch: 0 };
     expect(readThought(editor).text).toBe('What should I do next?');
   });
 });
