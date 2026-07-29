@@ -102,15 +102,20 @@ git -C /Users/chrisrytting/code/learning-loop status --porcelain
   `Co-Authored-By: Codex Opus 4.8 <noreply@anthropic.com>` (Codex).
 - **Detached commits already ahead of main:** create a safety branch at the
   current HEAD before doing anything else so those commits become durable.
-- **No commits ahead of main and no uncommitted target worktree changes:**
-  there's nothing to land. Stop and report that no landing action is needed
-  (maybe the wrong worktree was picked).
+- **No commits ahead of main and no uncommitted target worktree changes:** check
+  whether the attached target branch is fully merged into main with
+  `git merge-base --is-ancestor HEAD main`. If it is merged, treat this as a
+  cleanup retry: keep the recorded branch, skip branch creation and Step 2, and
+  continue through the build/test and symlink guard before cleanup. If it is
+  not merged, there's nothing to land; stop and report that the wrong worktree
+  may have been picked.
 - **Main has uncommitted changes:** stop and report them. Do not merge into a
   dirty main worktree.
 
 After any branch creation and commit, repeat all safety checks. Continue only
 when the target worktree is clean, HEAD is attached to the recorded branch, at
-least one commit is ahead of main, and the main worktree is clean.
+the main worktree is clean, and either at least one commit is ahead of main or
+the recorded branch is fully merged into main for a cleanup retry.
 
 ## Step 2 — Merge into main
 
@@ -120,6 +125,9 @@ From the **main repo** (not the worktree):
 git -C /Users/chrisrytting/code/learning-loop checkout main
 git -C /Users/chrisrytting/code/learning-loop merge --no-edit <branch>
 ```
+
+For a cleanup retry whose target branch is already fully merged into main, skip
+the merge command and continue to Step 3.
 
 If the merge reports conflicts, **stop** and report them — do not attempt to
 resolve them as part of this workflow unless the user asks.
