@@ -25,8 +25,9 @@ Feature work happens in git worktrees created under `.claude/worktrees/`.
 **When merging a branch into main and cleaning up**, use the `land-worktree` skill
 (invoke `/land-worktree`) — it runs the whole sequence safely: merge → `npm run build`
 → remove the worktree → delete the branch, with safety checks before anything
-irreversible. It does **not** touch the symlink: if the symlink dangles into the
-removed worktree, the skill flags it in its summary and the human repoints it.
+irreversible. It does **not** touch the symlink: if Obsidian is using the
+worktree being landed, the skill stops before removal and leaves the clean,
+merged worktree and branch intact until the human switches away from it.
 
 ## Architecture
 - `src/ai/` — Claude/Ollama API calls, cost tracking, usage collection

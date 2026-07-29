@@ -29,8 +29,8 @@ assuming. Claude worktrees usually already have a branch (e.g. `claude/<name>`);
 Codex-managed worktrees often start at a **detached HEAD**. The Obsidian plugin
 symlink at `/Users/chrisrytting/Tiny Obsidian/.obsidian/plugins/learning-loop`
 is **human-owned: this skill never repoints it** (see the agent guide). If it
-currently points into the worktree being landed, it will dangle after removal —
-flag that in the final report so the human can repoint it by hand.
+currently resolves into the worktree being landed, stop before cleanup and ask
+the human to switch it. Never remove Obsidian's active plugin worktree.
 
 ## Guiding principle
 
@@ -49,6 +49,7 @@ Keep the flow moving unless one of these checks fails:
 - The main worktree has uncommitted files.
 - The merge conflicts.
 - Tests or build fail after merge.
+- The Obsidian plugin symlink resolves into the target worktree.
 - Git refuses to remove the worktree because it is not clean.
 - Git refuses `branch -d`, meaning the branch is not fully merged.
 
@@ -133,17 +134,29 @@ If the build fails, stop and report. A broken build on main is worse than a
 lingering worktree — don't continue the cleanup until it's green. Running
 `npm test` here too is cheap insurance.
 
-## Step 4 — Check the Obsidian symlink (do NOT repoint it)
+## Step 4 — Guard the active Obsidian worktree (do NOT repoint it)
 
-The symlink is **human-owned** — never repoint it. Only inspect where it points:
+The symlink is **human-owned** — never repoint it. Run the bundled read-only
+guard before any cleanup:
 
 ```bash
-readlink "/Users/chrisrytting/Tiny Obsidian/.obsidian/plugins/learning-loop"
+bash <skill-directory>/scripts/check-active-worktree.sh <worktree-path>
 ```
 
-If that path is inside the worktree you're about to remove, it will dangle after
-Step 5 and break the plugin in Obsidian. **Do not fix it yourself.** Record it
-and surface it prominently in the Step 7 report so the human repoints it by hand.
+The guard handles absolute and relative symlink targets, compares canonical
+paths, and exits with status 2 when cleanup must stop. If it reports `BLOCKED`:
+
+1. **Stop before Step 5.** Do not stop the worktree's watcher, remove the
+   worktree, or delete its branch.
+2. Report that the merge, build, and tests succeeded but cleanup is blocked
+   because Obsidian is using this worktree.
+3. Ask the human to use `Learning Loop: Switch Worktree` in Obsidian (or repoint
+   the symlink manually) and invoke the landing workflow again.
+
+This guard applies even when the merge into main has already succeeded. Leaving
+the clean, merged worktree and branch in place is safe and makes a later cleanup
+retry straightforward. A missing or dangling plugin symlink does not authorize
+the skill to repair it; report it and stop for human intervention.
 
 ## Step 5 — Remove the worktree
 
@@ -179,8 +192,8 @@ investigate rather than forcing.
 ## Step 7 — Report
 
 Summarize what happened: which branch was merged, that the build (and tests)
-passed, and that the worktree and branch were removed. **If the human-owned
-symlink now dangles into the removed worktree (from Step 4), say so prominently
-so the human repoints it.** Mention anything else you skipped or that needs the
-user's attention (e.g. "the plugin should be reloaded in Obsidian to pick up the
-merged build").
+passed, and that the worktree and branch were removed. If Step 4 stopped
+cleanup, state prominently that the clean, merged worktree and branch remain
+intact until the human switches Obsidian away from that worktree. Mention
+anything else you skipped or that needs the user's attention (e.g. "the plugin
+should be reloaded in Obsidian to pick up the merged build").
